@@ -316,26 +316,28 @@
         margin-top: 0.5rem;
         font-size: 0.8rem;
         border-collapse: collapse;
-        table-layout: fixed;
+        table-layout: auto; /* 改为 auto，避免列宽错乱 */
       }
 
       .meta-table th,
       .meta-table td {
         text-align: left;
-        padding: 0.3rem 0.5rem;
+        padding: 0.4rem 0.5rem;
         border-bottom: 1px solid #2a2a2a;
-        vertical-align: top;
-        word-break: break-word;
+        vertical-align: middle; /* 统一垂直对齐 */
       }
 
       .meta-table th {
         color: #888;
-        width: 45%;
+        width: 42%; /* 稍微收紧，避免挤压 */
         font-weight: 400;
+        white-space: nowrap; /* 防止 key 换行 */
       }
 
       .meta-table td {
         color: #ddd;
+        text-align: right; /* 数值统一右对齐 */
+        font-variant-numeric: tabular-nums; /* 等宽数字，更整齐 */
       }
 
       .meta-section-header {
@@ -588,9 +590,6 @@
               <summary>Video</summary>
               <table class="meta-table">
                 <tr>
-                  <th colspan="2" class="meta-section-header">Video</th>
-                </tr>
-                <tr>
                   <th>Codec</th>
                   <td x-text="metadata.video.codec"></td>
                 </tr>
@@ -644,9 +643,6 @@
               <summary>Audio</summary>
               <table class="meta-table">
                 <tr>
-                  <th colspan="2" class="meta-section-header">Audio</th>
-                </tr>
-                <tr>
                   <th>Codec</th>
                   <td x-text="metadata.audio.codec"></td>
                 </tr>
@@ -672,9 +668,6 @@
             <details class="meta-section">
               <summary>Audio</summary>
               <table class="meta-table">
-                <tr>
-                  <th colspan="2" class="meta-section-header">Audio</th>
-                </tr>
                 <tr>
                   <td colspan="2" style="color: #888; padding-top: 0.25rem">
                     No audio track
