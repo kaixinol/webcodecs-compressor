@@ -13,48 +13,73 @@
  */
 
 import {
-    Input,
-    ALL_FORMATS,
-    BlobSource,
-    Output,
-    BufferTarget,
-    Mp4OutputFormat,
-    WebMOutputFormat,
-    Conversion,
-    canEncodeVideo,
-} from 'mediabunny';
+  Input,
+  ALL_FORMATS,
+  BlobSource,
+  Output,
+  BufferTarget,
+  Mp4OutputFormat,
+  WebMOutputFormat,
+  Conversion,
+} from "mediabunny";
 
-import { dimensionsFromPreset, calculateCustomResize, needsSpeed } from './video.js';
+import {
+  dimensionsFromPreset,
+  calculateCustomResize,
+  needsSpeed,
+} from "./video.js";
 
 /** Codec id → label shown in UI */
 export const CODEC_OPTIONS = [
-    { id: 'h264', mbCodec: 'avc',     label: 'H.264 (MP4)',         ext: '.mp4',  fmt: Mp4OutputFormat },
-    { id: 'hevc', mbCodec: 'hevc',    label: 'H.265 / HEVC (MP4)',  ext: '.mp4',  fmt: Mp4OutputFormat },
-    { id: 'vp8',  mbCodec: 'vp8',     label: 'VP8 (WebM)',          ext: '.webm', fmt: WebMOutputFormat },
-    { id: 'vp9',  mbCodec: 'vp9',     label: 'VP9 (WebM)',          ext: '.webm', fmt: WebMOutputFormat },
-    { id: 'av1',  mbCodec: 'av1',     label: 'AV1 (MP4/WebM)',      ext: '.mp4',  fmt: Mp4OutputFormat },
+  {
+    id: "h264",
+    mbCodec: "avc",
+    label: "H.264 (MP4)",
+    ext: ".mp4",
+    fmt: Mp4OutputFormat,
+  },
+  {
+    id: "hevc",
+    mbCodec: "hevc",
+    label: "H.265 / HEVC (MP4)",
+    ext: ".mp4",
+    fmt: Mp4OutputFormat,
+  },
+  {
+    id: "vp8",
+    mbCodec: "vp8",
+    label: "VP8 (WebM)",
+    ext: ".webm",
+    fmt: WebMOutputFormat,
+  },
+  {
+    id: "vp9",
+    mbCodec: "vp9",
+    label: "VP9 (WebM)",
+    ext: ".webm",
+    fmt: WebMOutputFormat,
+  },
+  {
+    id: "av1",
+    mbCodec: "av1",
+    label: "AV1 (MP4/WebM)",
+    ext: ".mp4",
+    fmt: Mp4OutputFormat,
+  },
 ];
 
 /** Lookup table */
-const BY_ID = Object.fromEntries(CODEC_OPTIONS.map(c => [c.id, c]));
-
-/**
- * Check if the browser can encode a given codec at a test resolution.
- */
-export async function checkCodecSupported(mbCodec, w = 1280, h = 720) {
-    try {
-        return await canEncodeVideo(mbCodec, { width: w, height: h, bitrate: 1e6 });
-    } catch {
-        return false;
-    }
-}
+const BY_ID = Object.fromEntries(CODEC_OPTIONS.map((c) => [c.id, c]));
 
 /**
  * Estimate a reasonable bitrate for a given resolution (~0.08 bpp at 30 fps).
  */
 export function estimateBitrate(w, h) {
-    const pixels = w * h;
-    return Math.max(200_000, Math.min(20_000_000, Math.round(pixels * 30 * 0.08)));
+  const pixels = w * h;
+  return Math.max(
+    200_000,
+    Math.min(20_000_000, Math.round(pixels * 30 * 0.08)),
+  );
 }
 
 /**
@@ -63,20 +88,20 @@ export function estimateBitrate(w, h) {
  * a very generous 8 Mbps.
  */
 export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
-    if (sourceBitrate && sourceBitrate > 0) {
-        return Math.min(50_000_000, Math.round(sourceBitrate * 1.2));
-    }
-    return 8_000_000;
+  if (sourceBitrate && sourceBitrate > 0) {
+    return Math.min(50_000_000, Math.round(sourceBitrate * 1.2));
+  }
+  return 8_000_000;
 }
 
 /**
  * Derive output file name.
  */
 export function deriveOutputFileName(originalName, codecId) {
-    const cfg = BY_ID[codecId];
-    const ext = cfg ? cfg.ext : '.mp4';
-    const base = originalName.replace(/\.[^.]+$/, '');
-    return `${base}_processed${ext}`;
+  const cfg = BY_ID[codecId];
+  const ext = cfg ? cfg.ext : ".mp4";
+  const base = originalName.replace(/\.[^.]+$/, "");
+  return `${base}_processed${ext}`;
 }
 
 /**
@@ -84,22 +109,22 @@ export function deriveOutputFileName(originalName, codecId) {
  * Called by MediaBunny AFTER native resize/rotate.
  */
 function makeVideoProcessFn(speed) {
-    return (sample) => {
-        sample.setTimestamp(sample.timestamp / speed);
-        sample.setDuration(sample.duration / speed);
-        return sample;
-    };
+  return (sample) => {
+    sample.setTimestamp(sample.timestamp / speed);
+    sample.setDuration(sample.duration / speed);
+    return sample;
+  };
 }
 
 /** Build audio process function — adjusts timestamps for speed. */
 function makeAudioProcessFn(speed) {
-    return (sample) => {
-        sample.setTimestamp(sample.timestamp / speed);
-        if (typeof sample.setDuration === 'function') {
-            sample.setDuration(sample.duration / speed);
-        }
-        return sample;
-    };
+  return (sample) => {
+    sample.setTimestamp(sample.timestamp / speed);
+    if (typeof sample.setDuration === "function") {
+      sample.setDuration(sample.duration / speed);
+    }
+    return sample;
+  };
 }
 
 /**
@@ -122,145 +147,160 @@ function makeAudioProcessFn(speed) {
  *                    inputSize: number, outputSize: number, srcDuration: number }>}
  */
 export async function processVideo({
-    file,
-    codec = 'h264',
-    resolution = null,
-    customWidth,
-    customHeight,
-    speed = 1.0,
-    keepAudio = true,
-    bitrate = 0,
-    qualityPreset = 'auto',
-    onProgress = null,
-    onStatus = null,
-    onConversionReady = null,
+  file,
+  codec = "h264",
+  resolution = null,
+  customWidth,
+  customHeight,
+  speed = 1.0,
+  keepAudio = true,
+  bitrate = 0,
+  qualityPreset = "auto",
+  onProgress = null,
+  onStatus = null,
+  onConversionReady = null,
 }) {
-    const cfg = BY_ID[codec];
-    if (!cfg) throw new Error(`Unknown codec: ${codec}`);
-    const videoCodec = cfg.mbCodec;
-    const outputFormat = new cfg.fmt();
+  const cfg = BY_ID[codec];
+  if (!cfg) throw new Error(`Unknown codec: ${codec}`);
+  const videoCodec = cfg.mbCodec;
+  const outputFormat = new cfg.fmt();
 
-    /* ── 1. Open input ─────────────────────────────────────────────── */
-    const input = new Input({
-        source: new BlobSource(file),
-        formats: ALL_FORMATS,
-    });
+  /* ── 1. Open input ─────────────────────────────────────────────── */
+  const input = new Input({
+    source: new BlobSource(file),
+    formats: ALL_FORMATS,
+  });
 
-    const inputSize = await input.source.getSize();
-    const srcDuration = await input.computeDuration();
-    const firstTs = await input.getFirstTimestamp();
-    const effectiveDuration = srcDuration - firstTs;
+  const inputSize = await input.source.getSize();
+  const srcDuration = await input.computeDuration();
+  const firstTs = await input.getFirstTimestamp();
+  const effectiveDuration = srcDuration - firstTs;
 
-    const videoTrack = await input.getPrimaryVideoTrack();
-    const audioTrack = await input.getPrimaryAudioTrack();
+  const videoTrack = await input.getPrimaryVideoTrack();
+  const audioTrack = await input.getPrimaryAudioTrack();
 
-    if (!videoTrack) throw new Error('No video track found in input file.');
+  if (!videoTrack) throw new Error("No video track found in input file.");
 
-    const srcW = videoTrack.displayWidth;
-    const srcH = videoTrack.displayHeight;
+  const srcW = videoTrack.displayWidth;
+  const srcH = videoTrack.displayHeight;
 
-    /* ── 2. Resolve output dimensions ──────────────────────────────── */
-    let outW = srcW;
-    let outH = srcH;
-    let needsResize = false;
+  /* ── 2. Resolve output dimensions ──────────────────────────────── */
+  let outW = srcW;
+  let outH = srcH;
+  let needsResize = false;
 
-    if (resolution && resolution !== 'original') {
-        if (resolution === 'custom' && customWidth && customHeight) {
-            ({ width: outW, height: outH } = calculateCustomResize(srcW, srcH, customWidth, customHeight));
-        } else {
-            const presetH = parseInt(resolution, 10);
-            if (!isNaN(presetH)) {
-                ({ width: outW, height: outH } = dimensionsFromPreset(presetH, srcW, srcH));
-            }
-        }
-        needsResize = outW !== srcW || outH !== srcH;
-    }
-
-    // Safety: never upscale beyond source dimensions
-    if (outW > srcW || outH > srcH) {
-        outW = srcW;
-        outH = srcH;
-        needsResize = false;
-    }
-
-    const doSpeed = needsSpeed(speed);
-
-    /* ── 3. Determine bitrate ──────────────────────────────────────── */
-    let vidBitrate;
-    if (bitrate > 0) {
-        vidBitrate = bitrate;
-    } else if (qualityPreset === 'original') {
-        vidBitrate = originalQualityBitrate(videoTrack.bitrate, outW, outH);
+  if (resolution && resolution !== "original") {
+    if (resolution === "custom" && customWidth && customHeight) {
+      ({ width: outW, height: outH } = calculateCustomResize(
+        srcW,
+        srcH,
+        customWidth,
+        customHeight,
+      ));
     } else {
-        vidBitrate = estimateBitrate(outW, outH);
+      const presetH = parseInt(resolution, 10);
+      if (!isNaN(presetH)) {
+        ({ width: outW, height: outH } = dimensionsFromPreset(
+          presetH,
+          srcW,
+          srcH,
+        ));
+      }
     }
+    needsResize = outW !== srcW || outH !== srcH;
+  }
 
-    if (onStatus) {
-        const parts = [];
-        if (needsResize) parts.push(`resize ${srcW}×${srcH} → ${outW}×${outH}`);
-        else if (qualityPreset === 'original') parts.push('quality: original');
-        if (doSpeed) parts.push(`speed ${speed}×`);
-        parts.push(`${cfg.label} @ ${(vidBitrate / 1000).toFixed(0)}kbps`);
-        if (!keepAudio) parts.push('no audio');
-        onStatus(parts.join(', '));
-    }
+  // Safety: never upscale beyond source dimensions
+  if (outW > srcW || outH > srcH) {
+    outW = srcW;
+    outH = srcH;
+    needsResize = false;
+  }
 
-    /* ── 4. Build output ───────────────────────────────────────────── */
-    const output = new Output({
-        format: outputFormat,
-        target: new BufferTarget(),
-    });
+  const doSpeed = needsSpeed(speed);
 
-    /* ── 5. Build codec conversion options ──────────────────────────── */
-    const videoOpts = {
-        codec: videoCodec,
-        bitrate: vidBitrate,
-        ...(needsResize ? { width: outW, height: outH, fit: 'contain' } : {}),
-        ...(doSpeed ? {
-            process: makeVideoProcessFn(speed),
-            ...(needsResize ? { processedWidth: outW, processedHeight: outH } : {}),
-        } : {}),
-    };
+  /* ── 3. Determine bitrate ──────────────────────────────────────── */
+  let vidBitrate;
+  if (bitrate > 0) {
+    vidBitrate = bitrate;
+  } else if (qualityPreset === "original") {
+    vidBitrate = originalQualityBitrate(videoTrack.bitrate, outW, outH);
+  } else {
+    vidBitrate = estimateBitrate(outW, outH);
+  }
 
-    const audioOpts = {};
-    if (!keepAudio) {
-        audioOpts.discard = true;
-    } else if (keepAudio && audioTrack && doSpeed) {
-        audioOpts.process = makeAudioProcessFn(speed);
-    }
+  if (onStatus) {
+    const parts = [];
+    if (needsResize) parts.push(`resize ${srcW}×${srcH} → ${outW}×${outH}`);
+    else if (qualityPreset === "original") parts.push("quality: original");
+    if (doSpeed) parts.push(`speed ${speed}×`);
+    parts.push(`${cfg.label} @ ${(vidBitrate / 1000).toFixed(0)}kbps`);
+    if (!keepAudio) parts.push("no audio");
+    onStatus(parts.join(", "));
+  }
 
-    /* ── 6. Initialise conversion ──────────────────────────────────── */
-    const conversion = await Conversion.init({
-        input,
-        output,
-        video: videoOpts,
-        audio: Object.keys(audioOpts).length > 0 ? audioOpts : undefined,
-    });
+  /* ── 4. Build output ───────────────────────────────────────────── */
+  const output = new Output({
+    format: outputFormat,
+    target: new BufferTarget(),
+  });
 
-    if (!conversion.isValid) {
-        const reasons = conversion.discardedTracks.map(d => d.reason).join('; ');
-        throw new Error(`Conversion invalid: ${reasons}`);
-    }
+  /* ── 5. Build codec conversion options ──────────────────────────── */
+  const videoOpts = {
+    codec: videoCodec,
+    bitrate: vidBitrate,
+    ...(needsResize ? { width: outW, height: outH, fit: "contain" } : {}),
+    ...(doSpeed
+      ? {
+          process: makeVideoProcessFn(speed),
+          ...(needsResize
+            ? { processedWidth: outW, processedHeight: outH }
+            : {}),
+        }
+      : {}),
+  };
 
-    if (onConversionReady) onConversionReady(conversion);
+  const audioOpts = {};
+  if (!keepAudio) {
+    audioOpts.discard = true;
+  } else if (keepAudio && audioTrack && doSpeed) {
+    audioOpts.process = makeAudioProcessFn(speed);
+  }
 
-    /* ── 7. Execute ────────────────────────────────────────────────── */
-    conversion.onProgress = (p) => { if (onProgress) onProgress(p); };
-    onStatus?.('Processing…');
+  /* ── 6. Initialise conversion ──────────────────────────────────── */
+  const conversion = await Conversion.init({
+    input,
+    output,
+    video: videoOpts,
+    audio: Object.keys(audioOpts).length > 0 ? audioOpts : undefined,
+  });
 
-    await conversion.execute();
+  if (!conversion.isValid) {
+    const reasons = conversion.discardedTracks.map((d) => d.reason).join("; ");
+    throw new Error(`Conversion invalid: ${reasons}`);
+  }
 
-    /* ── 8. Return ─────────────────────────────────────────────────── */
-    const buffer = output.target.buffer;
-    const mimeType = output.format.mimeType;
-    const fileName = deriveOutputFileName(file.name, codec);
+  if (onConversionReady) onConversionReady(conversion);
 
-    return {
-        buffer,
-        fileName,
-        mimeType,
-        inputSize,
-        outputSize: buffer.byteLength,
-        srcDuration: effectiveDuration,
-    };
+  /* ── 7. Execute ────────────────────────────────────────────────── */
+  conversion.onProgress = (p) => {
+    if (onProgress) onProgress(p);
+  };
+  onStatus?.("Processing…");
+
+  await conversion.execute();
+
+  /* ── 8. Return ─────────────────────────────────────────────────── */
+  const buffer = output.target.buffer;
+  const mimeType = output.format.mimeType;
+  const fileName = deriveOutputFileName(file.name, codec);
+
+  return {
+    buffer,
+    fileName,
+    mimeType,
+    inputSize,
+    outputSize: buffer.byteLength,
+    srcDuration: effectiveDuration,
+  };
 }
