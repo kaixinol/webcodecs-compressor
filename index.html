@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Video Compressor - MediaBunny</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "mediabunny": "https://cdn.jsdelivr.net/npm/mediabunny@1.40.1/dist/bundles/mediabunny.min.mjs"
+        }
+    }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f; color: #e0e0e0;
+            min-height: 100vh; padding: 2rem 1rem;
+        }
+        .container { max-width: 640px; margin: 0 auto; }
+        h1 { font-size: 1.75rem; margin-bottom: .25rem; color: #81c784; }
+        .subtitle { color: #888; font-size: .875rem; margin-bottom: 1.5rem; }
+
+        .card {
+            background: #1a1a1a; border: 1px solid #333; border-radius: 12px;
+            padding: 1.5rem; margin-bottom: 1rem;
+        }
+
+        /* drop zone */
+        .drop-zone {
+            border: 2px dashed #555; border-radius: 8px; padding: 2rem;
+            text-align: center; cursor: pointer; transition: all .2s;
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: #81c784; background: rgba(129,199,132,.05);
+        }
+        .drop-zone p { margin-top: .5rem; color: #888; font-size: .875rem; }
+
+        /* file info */
+        .file-info {
+            display: flex; align-items: center; gap: .5rem; padding: .75rem;
+            background: #252525; border-radius: 8px; margin-top: .75rem;
+        }
+        .file-info .icon { font-size: 1.5rem; }
+        .file-info .name { font-weight: 500; flex: 1; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+        .file-info .size { color: #888; font-size: .875rem; white-space: nowrap; }
+        .file-info .remove {
+            background: none; border: none; color: #ef5350;
+            cursor: pointer; font-size: 1.25rem; padding: .25rem;
+        }
+
+        /* form */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label {
+            display: block; font-size: .875rem; font-weight: 500;
+            margin-bottom: .375rem; color: #bbb;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+        .form-group input, .form-group select {
+            width: 100%; padding: .625rem .75rem; background: #252525;
+            border: 1px solid #444; border-radius: 6px; color: #e0e0e0;
+            font-size: .875rem;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none; border-color: #81c784;
+        }
+        select { cursor: pointer; appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right .75rem center;
+            padding-right: 2.25rem;
+        }
+        select option[disabled] { color: #555; background: #1a1a1a; }
+
+        /* checkbox */
+        .checkbox-group { display: flex; align-items: center; gap: .5rem; }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px; height: 18px; accent-color: #81c784; cursor: pointer;
+        }
+        .checkbox-group label { cursor: pointer; font-size: .875rem; color: #bbb; }
+
+        /* pill buttons for presets */
+        .pill-row { display: flex; flex-wrap: wrap; gap: .375rem; }
+        .pill {
+            display: inline-flex; align-items: center;
+            padding: .35rem .7rem; border-radius: 20px;
+            background: #252525; border: 1px solid #444;
+            font-size: .75rem; cursor: pointer; color: #ccc;
+            transition: all .15s; user-select: none;
+        }
+        .pill:hover { border-color: #81c784; }
+        .pill.active {
+            background: #81c784; color: #0f0f0f; border-color: #81c784; font-weight: 600;
+        }
+
+        /* codec wrapper + tooltip */
+        .codec-wrap { position: relative; }
+        .codec-tooltip {
+            display: none; position: absolute; bottom: calc(100% + 6px);
+            left: 0; right: 0; text-align: center;
+            background: #ef5350; color: #fff; font-size: .75rem;
+            padding: .35rem .6rem; border-radius: 6px; white-space: nowrap;
+            z-index: 20; pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,.4);
+        }
+        .codec-tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%); border: 5px solid transparent;
+            border-top-color: #ef5350;
+        }
+        .codec-wrap.show-tooltip .codec-tooltip { display: block; }
+
+        /* unsupported codec badges */
+        .badges { margin-top: .375rem; display: flex; flex-wrap: wrap; gap: .25rem; }
+        .badge-disabled {
+            display: inline-flex; align-items: center; gap: .25rem;
+            padding: .2rem .5rem; border-radius: 6px;
+            background: rgba(239,83,80,.12); color: #ef5350;
+            font-size: .7rem; cursor: pointer; user-select: none;
+        }
+        .badge-disabled:hover { background: rgba(239,83,80,.2); }
+
+        /* metadata */
+        .meta-section { margin-top: .5rem; }
+        .meta-section summary {
+            cursor: pointer; font-size: .875rem; color: #81c784;
+            user-select: none;
+        }
+        .meta-section summary:hover { color: #6fbf73; }
+        .meta-table {
+            width: 100%; margin-top: .5rem;
+            font-size: .8rem; border-collapse: collapse;
+        }
+        .meta-table th, .meta-table td {
+            text-align: left; padding: .3rem .5rem;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .meta-table th { color: #888; width: 45%; font-weight: 400; }
+        .meta-table td { color: #ddd; }
+        .meta-section-header {
+            color: #81c784; font-weight: 600; padding-top: .75rem !important;
+            border-bottom: none !important;
+        }
+
+        /* buttons */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 100%; padding: .875rem; font-size: 1rem; font-weight: 600;
+            border: none; border-radius: 8px; cursor: pointer; transition: all .2s;
+        }
+        .btn-primary { background: #81c784; color: #0f0f0f; }
+        .btn-primary:hover:not(:disabled) { background: #6fbf73; }
+        .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-cancel { background: #ef5350; color: #fff; margin-top: .5rem; }
+        .btn-cancel:hover { background: #e53935; }
+
+        /* progress */
+        .progress-bar-bg {
+            height: 8px; background: #333; border-radius: 4px; overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%; background: linear-gradient(90deg, #81c784, #4caf50);
+            border-radius: 4px; transition: width .3s;
+        }
+        .progress-text {
+            display: flex; justify-content: space-between;
+            margin-top: .5rem; font-size: .75rem; color: #888;
+        }
+
+        /* status */
+        .status {
+            text-align: center; padding: .75rem; border-radius: 8px;
+            font-size: .875rem; margin-top: .75rem;
+        }
+        .status.success     { background: rgba(129,199,132,.15); color: #81c784; }
+        .status.error       { background: rgba(239,83,80,.15);  color: #ef5350; }
+        .status.processing  { background: rgba(255,183,77,.15); color: #ffb74d; }
+
+        /* warning toast */
+        .toast-warning {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .625rem .875rem; margin-top: .75rem;
+            background: rgba(255,183,77,.12); border: 1px solid rgba(255,183,77,.3);
+            border-radius: 8px; font-size: .8rem; color: #ffb74d;
+            animation: toastIn .2s ease;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* mobile */
+        @media (max-width: 480px) {
+            body { padding: 1rem .75rem; }
+            .card { padding: 1rem; }
+            h1 { font-size: 1.4rem; }
+            .subtitle { font-size: .8rem; }
+            .form-row { grid-template-columns: 1fr; }
+            .drop-zone { padding: 1.25rem; }
+            .drop-zone svg { width: 32px; height: 32px; }
+            .pill { font-size: .65rem; padding: .3rem .5rem; }
+            .btn { padding: .75rem; font-size: .95rem; }
+            .meta-table th, .meta-table td { padding: .25rem .375rem; font-size: .75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" x-data="videoCompressor" x-init="init()">
+
+        <h1>Video Compressor</h1>
+        <p class="subtitle">Local video processing &mdash; MediaBunny &amp; WebCodecs</p>
+
+        <!-- File upload -->
+        <div class="card">
+            <div class="drop-zone"
+                 :class="{ 'drag-over': dragging }"
+                 @dragover.prevent="dragging = true"
+                 @dragleave="dragging = false"
+                 @drop.prevent="handleDrop($event)"
+                 @click="$refs.fileInput.click()">
+                <input type="file" x-ref="fileInput"
+                       accept="video/*,.mkv,.webm,.mp4"
+                       @change="handleFileSelect($event)" style="display:none">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                     stroke="#81c784" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p>Click or drag video file here</p>
+            </div>
+            <template x-if="file">
+                <div class="file-info">
+                    <span class="icon">&#x1f3ac;</span>
+                    <span class="name" x-text="file.name"></span>
+                    <span class="size" x-text="formatSize(file.size)"></span>
+                    <button class="remove" @click.stop="clearFile()">&times;</button>
+                </div>
+            </template>
+        </div>
+
+        <!-- Metadata -->
+        <template x-if="metadata">
+            <div class="card">
+                <details class="meta-section" open>
+                    <summary>Source file info</summary>
+                    <table class="meta-table">
+                        <!-- General -->
+                        <tr><th colspan="2" class="meta-section-header">General</th></tr>
+                        <tr><th>File</th><td x-text="metadata.fileName"></td></tr>
+                        <tr><th>Size</th><td x-text="metadata.fileSizeStr"></td></tr>
+                        <tr><th>Container</th><td x-text="metadata.container"></td></tr>
+                        <tr><th>Duration</th><td x-text="metadata.durationStr"></td></tr>
+                        <tr><th>Avg. bitrate</th><td x-text="metadata.totalBitrateStr"></td></tr>
+
+                        <!-- Video -->
+                        <template x-if="metadata.video">
+                            <tbody>
+                                <tr><th colspan="2" class="meta-section-header">Video</th></tr>
+                                <tr><th>Codec</th><td x-text="metadata.video.codec"></td></tr>
+                                <tr><th>Coded size</th><td x-text="metadata.video.codedW + '\u00d7' + metadata.video.codedH"></td></tr>
+                                <tr><th>Display size</th><td x-text="metadata.video.displayW + '\u00d7' + metadata.video.displayH"></td></tr>
+                                <tr><th>Frame rate</th><td x-text="metadata.video.fps + ' fps'"></td></tr>
+                                <tr><th>Rotation</th><td x-text="(metadata.video.rotation || 0) + '\u00b0'"></td></tr>
+                                <tr><th>Bitrate</th><td x-text="metadata.video.bitrate ? (metadata.video.bitrate/1000).toFixed(0) + ' kbps' : 'unknown'"></td></tr>
+                                <tr><th>Pixel aspect</th><td x-text="metadata.video.aspectRatio"></td></tr>
+                                <tr><th>Color space</th><td x-text="metadata.video.colorSpace"></td></tr>
+                                <tr><th>Key-frame interval</th><td x-text="metadata.video.keyFrameInterval ? metadata.video.keyFrameInterval.toFixed(1) + 's' : 'unknown'"></td></tr>
+                            </tbody>
+                        </template>
+
+                        <!-- Audio -->
+                        <template x-if="metadata.audio">
+                            <tbody>
+                                <tr><th colspan="2" class="meta-section-header">Audio</th></tr>
+                                <tr><th>Codec</th><td x-text="metadata.audio.codec"></td></tr>
+                                <tr><th>Channels</th><td x-text="metadata.audio.channelLabel"></td></tr>
+                                <tr><th>Sample rate</th><td x-text="metadata.audio.sampleRate + ' Hz'"></td></tr>
+                                <tr><th>Bitrate</th><td x-text="metadata.audio.bitrate ? (metadata.audio.bitrate/1000).toFixed(0) + ' kbps' : 'unknown'"></td></tr>
+                            </tbody>
+                        </template>
+                        <template x-if="!metadata.audio">
+                            <tbody>
+                                <tr><th colspan="2" class="meta-section-header">Audio</th></tr>
+                                <tr><td colspan="2" style="color:#888;padding-top:.25rem;">No audio track</td></tr>
+                            </tbody>
+                        </template>
+                    </table>
+                </details>
+            </div>
+        </template>
+
+        <!-- Settings -->
+        <div class="card">
+
+            <!-- Codec selector with unsupported detection -->
+            <div class="form-group">
+                <label>Video codec</label>
+                <div class="codec-wrap" :class="{ 'show-tooltip': selectedUnsupported }"
+                     @mouseover="onCodecHover" @mouseleave="hoveredCodec = null">
+                    <select x-model="settings.codec">
+                        <template x-for="c in codecs" :key="c.id">
+                            <option :value="c.id" :disabled="!c.supported"
+                                    x-text="c.label + (c.supported ? '' : '  \u2717')">
+                            </option>
+                        </template>
+                    </select>
+                    <span class="codec-tooltip"
+                          x-text="selectedUnsupported ? unsupportedTooltip : ''"></span>
+                </div>
+                <!-- Mobile: tap disabled badges -->
+                <template x-if="disabledCodecs.length">
+                    <div class="badges">
+                        <template x-for="c in disabledCodecs" :key="c.id">
+                            <span class="badge-disabled" @click="showBadgeTooltip(c.id)"
+                                  x-text="c.label + ' \u2717'">
+                            </span>
+                        </template>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Quality mode -->
+            <div class="form-group">
+                <label>Quality mode</label>
+                <div class="pill-row">
+                    <span class="pill" :class="{ active: settings.qualityPreset === 'auto' }"
+                          @click="settings.qualityPreset = 'auto'">
+                        Compress (auto)
+                    </span>
+                    <span class="pill" :class="{ active: settings.qualityPreset === 'original' }"
+                          @click="settings.qualityPreset = 'original'">
+                        Original quality
+                    </span>
+                </div>
+            </div>
+
+            <!-- Resolution -->
+            <div class="form-group">
+                <label>Resolution</label>
+                <div class="pill-row">
+                    <template x-for="p in presets" :key="p.id">
+                        <span class="pill" :class="{ active: settings.resolution === p.id }"
+                              @click="setResolution(p.id)"
+                              x-text="p.label">
+                        </span>
+                    </template>
+                </div>
+                <div class="form-row" style="margin-top:.5rem" x-show="settings.resolution === 'custom'">
+                    <input type="number" x-model.number="settings.customWidth"
+                           placeholder="Width" min="64" max="3840">
+                    <input type="number" x-model.number="settings.customHeight"
+                           placeholder="Height" min="64" max="2160">
+                </div>
+            </div>
+
+            <!-- Bitrate (auto only) -->
+            <div class="form-group" x-show="settings.qualityPreset === 'auto'">
+                <label>Video bitrate <span style="color:#666">(kbps, 0 = auto)</span></label>
+                <input type="number" x-model.number="settings.bitrate"
+                       min="0" max="20000" step="100" placeholder="0">
+            </div>
+
+            <!-- Speed -->
+            <div class="form-group">
+                <label>Playback speed</label>
+                <input type="number" x-model.number="settings.speed"
+                       min="0.1" max="10" step="0.05" placeholder="1.0">
+            </div>
+
+            <!-- Audio toggle -->
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="keep_audio" x-model="settings.keepAudio">
+                    <label for="keep_audio">Keep audio track</label>
+                </div>
+            </div>
+
+            <!-- Auto-download -->
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="auto_dl" x-model="settings.autoDownload">
+                    <label for="auto_dl">Auto-download after processing</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resolution warning toast -->
+        <template x-if="warning">
+            <div class="toast-warning">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#ffb74d" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span x-text="warning"></span>
+            </div>
+        </template>
+
+        <!-- Action -->
+        <button class="btn btn-primary" :disabled="!canStart" @click="startProcessing"
+                x-text="processing ? 'Processing \u2026' : 'Start processing'">
+        </button>
+        <template x-if="processing">
+            <button class="btn btn-cancel" @click="cancelProcessing">Cancel</button>
+        </template>
+
+        <!-- Progress -->
+        <template x-if="processing || progress > 0">
+            <div style="margin-top:1rem">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="'width:' + progress * 100 + '%'"></div>
+                </div>
+                <p class="status processing" x-text="statusMessage"></p>
+            </div>
+        </template>
+
+        <!-- Error -->
+        <template x-if="error">
+            <p class="status error" x-text="error"></p>
+        </template>
+
+        <!-- Success -->
+        <template x-if="downloadUrl">
+            <div class="status success">
+                <p>Processing complete!</p>
+                <a :href="downloadUrl" :download="outputFileName"
+                   style="display:inline-block;margin-top:.5rem;color:inherit;text-decoration:underline;">
+                    Download <span x-text="outputFileName"></span>
+                </a>
+            </div>
+        </template>
+    </div>
+
+    <script type="module">
+        import registerApp from './main.js';
+        if (window.Alpine) {
+            window.Alpine.data('videoCompressor', registerApp);
+        } else {
+            document.addEventListener('alpine:init', () => {
+                window.Alpine.data('videoCompressor', registerApp);
+            });
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</body>
+</html>
