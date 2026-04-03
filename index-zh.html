@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -8,16 +8,16 @@
     />
     
     <!-- SEO Meta Tags -->
-    <title>Video Compressor - MediaBunny | Local WebCodecs Video Processing</title>
-    <meta name="description" content="Online video compression tool powered by WebCodecs API. Processes entirely in your local browser without uploading to servers, protecting your privacy. Supports H.264, H.265, VP9, AV1 and more." />
-    <meta name="keywords" content="video compressor, WebCodecs, local processing, online video tool, privacy protection, H.264, H.265, VP9, AV1, video encoding, browser video processing, MediaBunny" />
+    <title>视频压缩工具 - MediaBunny | 本地 WebCodecs 视频处理</title>
+    <meta name="description" content="基于 WebCodecs API 的在线视频压缩工具，完全在本地浏览器中处理，无需上传到服务器，保护您的隐私。支持 H.264、H.265、VP9、AV1 等多种编码格式。" />
+    <meta name="keywords" content="视频压缩，WebCodecs，本地处理，在线视频工具，隐私保护，H.264,H.265,VP9,AV1，视频编码，浏览器视频处理，MediaBunny" />
     <meta name="author" content="MediaBunny" />
     <meta name="robots" content="index, follow" />
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Video Compressor - MediaBunny | Local WebCodecs Video Processing" />
-    <meta property="og:description" content="Online video compression tool powered by WebCodecs API. Processes entirely in your local browser without uploading to servers." />
+    <meta property="og:title" content="视频压缩工具 - MediaBunny | 本地 WebCodecs 视频处理" />
+    <meta property="og:description" content="基于 WebCodecs API 的在线视频压缩工具，完全在本地浏览器中处理，无需上传到服务器，保护您的隐私。" />
     
     <!-- Language Alternates -->
     <link rel="alternate" hreflang="en" href="./index.html" />
@@ -29,7 +29,7 @@
     <meta name="theme-color" content="#81c784" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Video Compressor" />
+    <meta name="apple-mobile-web-app-title" content="视频压缩工具" />
     
     <script type="importmap">
       {
@@ -560,20 +560,20 @@
   <body>
     <!-- Language Switcher -->
     <div class="lang-switcher">
-      <a href="./index-zh.html" class="lang-btn">
+      <a href="./index.html" class="lang-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
           <line x1="2" y1="12" x2="22" y2="12"/>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
         </svg>
-        中文
+        English
       </a>
     </div>
 
     <div class="container" x-data="videoCompressor" x-init="init()">
-      <h1>Video Compressor</h1>
-      <p class="subtitle">
-        Local video processing &mdash; MediaBunny &amp; WebCodecs
+      <h1 data-i18n="title">视频压缩工具</h1>
+      <p class="subtitle" data-i18n="subtitle">
+        本地视频处理 &mdash; MediaBunny &amp; WebCodecs
       </p>
 
       <!-- File upload -->
@@ -606,7 +606,7 @@
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          <p>Click or drag video file here</p>
+          <p data-i18n="uploadHint">点击或拖拽视频文件到此处</p>
         </div>
 
         <template x-if="file">
@@ -624,29 +624,29 @@
         <div class="card">
           <!-- Basic info: open by default -->
           <details class="meta-section" open>
-            <summary>Source file info</summary>
+            <summary data-i18n="sourceFileTitle">源文件信息</summary>
             <table class="meta-table">
               <tr>
-                <th colspan="2" class="meta-section-header">General</th>
+                <th colspan="2" class="meta-section-header" data-i18n="general">常规</th>
               </tr>
               <tr>
-                <th>File</th>
+                <th data-i18n="fileLabel">文件</th>
                 <td x-text="metadata.fileName"></td>
               </tr>
               <tr>
-                <th>Size</th>
+                <th data-i18n="sizeLabel">大小</th>
                 <td x-text="metadata.fileSizeStr"></td>
               </tr>
               <tr>
-                <th>Container</th>
+                <th data-i18n="containerLabel">容器格式</th>
                 <td x-text="metadata.container"></td>
               </tr>
               <tr>
-                <th>Duration</th>
+                <th data-i18n="durationLabel">时长</th>
                 <td x-text="metadata.durationStr"></td>
               </tr>
               <tr>
-                <th>Avg. bitrate</th>
+                <th data-i18n="avgBitrateLabel">平均码率</th>
                 <td x-text="metadata.totalBitrateStr"></td>
               </tr>
             </table>
@@ -655,48 +655,48 @@
           <!-- Video: collapsed by default -->
           <template x-if="metadata.video">
             <details class="meta-section">
-              <summary>Video</summary>
+              <summary data-i18n="videoLabel">视频</summary>
               <table class="meta-table">
                 <tr>
-                  <th>Codec</th>
+                  <th data-i18n="codecLabel">编码格式</th>
                   <td x-text="metadata.video.codec"></td>
                 </tr>
                 <tr>
-                  <th>Coded size</th>
+                  <th data-i18n="codedSizeLabel">编码尺寸</th>
                   <td
                     x-text="metadata.video.codedW + '\u00d7' + metadata.video.codedH"
                   ></td>
                 </tr>
                 <tr>
-                  <th>Display size</th>
+                  <th data-i18n="displaySizeLabel">显示尺寸</th>
                   <td
                     x-text="metadata.video.displayW + '\u00d7' + metadata.video.displayH"
                   ></td>
                 </tr>
                 <tr>
-                  <th>Frame rate</th>
+                  <th data-i18n="frameRateLabel">帧率</th>
                   <td x-text="metadata.video.fps + ' fps'"></td>
                 </tr>
                 <tr>
-                  <th>Rotation</th>
+                  <th data-i18n="rotationLabel">旋转角度</th>
                   <td x-text="(metadata.video.rotation || 0) + '\u00b0'"></td>
                 </tr>
                 <tr>
-                  <th>Bitrate</th>
+                  <th data-i18n="bitrateLabel">码率</th>
                   <td
                     x-text="metadata.video.bitrate ? (metadata.video.bitrate / 1000).toFixed(0) + ' kbps' : 'unknown'"
                   ></td>
                 </tr>
                 <tr>
-                  <th>Pixel aspect</th>
+                  <th data-i18n="pixelAspectLabel">像素宽高比</th>
                   <td x-text="metadata.video.aspectRatio"></td>
                 </tr>
                 <tr>
-                  <th>Color space</th>
+                  <th data-i18n="colorSpaceLabel">色彩空间</th>
                   <td x-text="metadata.video.colorSpace"></td>
                 </tr>
                 <tr>
-                  <th>Key-frame interval</th>
+                  <th data-i18n="keyFrameIntervalLabel">关键帧间隔</th>
                   <td
                     x-text="metadata.video.keyFrameInterval ? metadata.video.keyFrameInterval.toFixed(1) + 's' : 'unknown'"
                   ></td>
@@ -708,22 +708,22 @@
           <!-- Audio: collapsed by default -->
           <template x-if="metadata.audio">
             <details class="meta-section">
-              <summary>Audio</summary>
+              <summary data-i18n="audioLabel">音频</summary>
               <table class="meta-table">
                 <tr>
-                  <th>Codec</th>
+                  <th data-i18n="codecLabel">编码格式</th>
                   <td x-text="metadata.audio.codec"></td>
                 </tr>
                 <tr>
-                  <th>Channels</th>
+                  <th data-i18n="channelsLabel">声道数</th>
                   <td x-text="metadata.audio.channelLabel"></td>
                 </tr>
                 <tr>
-                  <th>Sample rate</th>
+                  <th data-i18n="sampleRateLabel">采样率</th>
                   <td x-text="metadata.audio.sampleRate + ' Hz'"></td>
                 </tr>
                 <tr>
-                  <th>Bitrate</th>
+                  <th data-i18n="bitrateLabel">码率</th>
                   <td
                     x-text="metadata.audio.bitrate ? (metadata.audio.bitrate / 1000).toFixed(0) + ' kbps' : 'unknown'"
                   ></td>
@@ -734,11 +734,11 @@
 
           <template x-if="!metadata.audio">
             <details class="meta-section">
-              <summary>Audio</summary>
+              <summary data-i18n="audioLabel">音频</summary>
               <table class="meta-table">
                 <tr>
-                  <td colspan="2" style="color: #888; padding-top: 0.25rem">
-                    No audio track
+                  <td colspan="2" style="color: #888; padding-top: 0.25rem" data-i18n="noAudio">
+                    无音频轨道
                   </td>
                 </tr>
               </table>
@@ -751,7 +751,7 @@
       <div class="card">
         <!-- Codec selector with unsupported detection -->
         <div class="form-group">
-          <label>Video codec</label>
+          <label data-i18n="videoCodecLabel">视频编码</label>
           <div
             class="codec-wrap"
             :class="{ 'show-tooltip': selectedUnsupported }"
@@ -788,28 +788,30 @@
 
         <!-- Quality mode -->
         <div class="form-group">
-          <label>Quality mode</label>
+          <label data-i18n="qualityModeLabel">质量模式</label>
           <div class="pill-row">
             <span
               class="pill"
               :class="{ active: settings.qualityPreset === 'auto' }"
               @click="settings.qualityPreset = 'auto'"
+              data-i18n="compressAuto"
             >
-              Compress (auto)
+              压缩（自动）
             </span>
             <span
               class="pill"
               :class="{ active: settings.qualityPreset === 'original' }"
               @click="settings.qualityPreset = 'original'"
+              data-i18n="originalQuality"
             >
-              Original quality
+              原始质量
             </span>
           </div>
         </div>
 
         <!-- Resolution -->
         <div class="form-group">
-          <label>Resolution</label>
+          <label data-i18n="resolutionLabel">分辨率</label>
           <div class="pill-row">
             <template x-for="p in presets" :key="p.id">
               <span
@@ -833,14 +835,14 @@
             <input
               type="number"
               x-model.number="settings.customWidth"
-              placeholder="Width"
+              placeholder="宽度"
               min="64"
               max="3840"
             />
             <input
               type="number"
               x-model.number="settings.customHeight"
-              placeholder="Height"
+              placeholder="高度"
               min="64"
               max="2160"
             />
@@ -850,8 +852,8 @@
         <!-- Bitrate (auto only) -->
         <div class="form-group" x-show="settings.qualityPreset === 'auto'">
           <label
-            >Video bitrate
-            <span style="color: #666">(kbps, 0 = auto)</span></label
+            >视频码率
+            <span style="color: #666">(kbps, 0 = 自动)</span></label
           >
           <input
             type="number"
@@ -865,7 +867,7 @@
 
         <!-- Speed -->
         <div class="form-group">
-          <label>Playback speed</label>
+          <label data-i18n="playbackSpeedLabel">播放速度</label>
           <input
             type="number"
             x-model.number="settings.speed"
@@ -884,7 +886,7 @@
               id="keep_audio"
               x-model="settings.keepAudio"
             />
-            <label for="keep_audio">Keep audio track</label>
+            <label for="keep_audio" data-i18n="keepAudioLabel">保留音频轨道</label>
           </div>
         </div>
 
@@ -896,7 +898,7 @@
               id="auto_dl"
               x-model="settings.autoDownload"
             />
-            <label for="auto_dl">Auto-download after processing</label>
+            <label for="auto_dl" data-i18n="autoDownloadLabel">处理完成后自动下载</label>
           </div>
         </div>
       </div>
@@ -927,11 +929,11 @@
         class="btn btn-primary"
         :disabled="!canStart"
         @click="startProcessing"
-        x-text="processing ? 'Processing …' : 'Start processing'"
+        x-text="processing ? '处理中...' : '开始处理'"
       ></button>
 
       <template x-if="processing">
-        <button class="btn btn-cancel" @click="cancelProcessing">Cancel</button>
+        <button class="btn btn-cancel" @click="cancelProcessing" data-i18n="cancelButton">取消</button>
       </template>
 
       <!-- Progress -->
@@ -955,7 +957,7 @@
       <!-- Success -->
       <template x-if="downloadUrl">
         <div class="status success">
-          <p>Processing complete!</p>
+          <p data-i18n="processingComplete">处理完成！</p>
           <a
             :href="downloadUrl"
             :download="outputFileName"
@@ -966,7 +968,7 @@
               text-decoration: underline;
             "
           >
-            Download <span x-text="outputFileName"></span>
+            <span data-i18n="downloadLink">下载</span> <span x-text="outputFileName"></span>
           </a>
         </div>
       </template>
@@ -1064,7 +1066,7 @@
 
       // Apply translations on page load
       document.addEventListener('DOMContentLoaded', () => {
-        const currentLang = document.documentElement.lang || 'en';
+        const currentLang = document.documentElement.lang || 'zh-CN';
         applyTranslations(currentLang);
       });
     </script>
