@@ -3,7 +3,10 @@
  * Exports a factory function for Alpine registration.
  */
 
-import { RESOLUTION_PRESETS } from "./core/video.js";
+import { RESOLUTION_PRESETS, CODEC_DEFINITIONS } from "./core/video.js";
+
+/** SDR-only codecs for HDR warning */
+const SDR_ONLY_CODEC_IDS = ["h264", "vp8"];
 
 export default function createApp() {
   return {
@@ -35,6 +38,8 @@ export default function createApp() {
       qualityPreset: "auto",
       autoDownload: true,
     },
+
+    isHdrSource: false,
 
     presets: RESOLUTION_PRESETS,
 
@@ -120,23 +125,15 @@ export default function createApp() {
       try {
         const mb = await import("mediabunny");
 
-        const codecTests = [
-          { id: "h264", label: "H.264 (MP4)", mbCodec: "avc", decodeConfig: { type: "file", video: { contentType: 'video/mp4; codecs="avc1.42E01E"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
-          { id: "hevc", label: "H.265 / HEVC (MP4)", mbCodec: "hevc", decodeConfig: { type: "file", video: { contentType: 'video/mp4; codecs="hev1.1.6.L93.B0"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
-          { id: "vp8", label: "VP8 (WebM)", mbCodec: "vp8", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="vp8"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
-          { id: "vp9", label: "VP9 (WebM)", mbCodec: "vp9", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="vp09.00.10.08"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
-          { id: "av1", label: "AV1 (MP4/WebM)", mbCodec: "av1", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="av01.0.05M.08"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
-        ];
-
         const results = await Promise.all(
-          codecTests.map(async (t) => {
+          CODEC_DEFINITIONS.map(async (def) => {
             let encodeOk = false;
             let decodeOk = false;
             let hardwareDecode = false;
 
             // Check encoding support
             try {
-              encodeOk = await mb.canEncodeVideo(t.mbCodec, {
+              encodeOk = await mb.canEncodeVideo(def.mbCodec, {
                 width: 1280,
                 height: 720,
                 bitrate: 1e6,
@@ -146,7 +143,16 @@ export default function createApp() {
             // Check decoding support using MediaCapabilities
             if (navigator.mediaCapabilities) {
               try {
-                const decodeInfo = await navigator.mediaCapabilities.decodingInfo(t.decodeConfig);
+                const decodeInfo = await navigator.mediaCapabilities.decodingInfo({
+                  type: "file",
+                  video: {
+                    contentType: def.decodeMimeType,
+                    width: 1280,
+                    height: 720,
+                    bitrate: 1e6,
+                    framerate: 30,
+                  },
+                });
                 decodeOk = decodeInfo.supported;
                 hardwareDecode = decodeInfo.powerEfficient;
               } catch {}
@@ -158,8 +164,8 @@ export default function createApp() {
             if (decodeOk && !hardwareDecode) tooltipParts.push("Software decode only");
 
             return {
-              id: t.id,
-              label: t.label,
+              id: def.id,
+              label: def.label,
               supported: encodeOk,
               decodeSupported: decodeOk,
               hardwareDecode,
@@ -274,6 +280,15 @@ export default function createApp() {
         if (videoInfo && videoInfo.displayH > 720) {
           this.settings.resolution = "720";
         }
+
+        // Detect HDR source for user awareness
+        this.isHdrSource = false;
+        if (videoInfo?.colorSpace) {
+          const cs = videoInfo.colorSpace.toLowerCase();
+          if (cs.includes("bt2020") || cs.includes("pq") || cs.includes("hlg") || cs.includes("hdr")) {
+            this.isHdrSource = true;
+          }
+        }
       } catch (e) {
         console.warn("[app] metadata read failed", e);
       }
@@ -383,6 +398,14 @@ export default function createApp() {
             "Please enter both width and height for custom resolution.";
           return;
         }
+      }
+
+      // Warn about HDR→SDR conversion
+      if (this.isHdrSource && SDR_ONLY_CODEC_IDS.includes(this.settings.codec)) {
+        this.warning = "HDR source will be converted to SDR. Colors may appear washed.";
+        setTimeout(() => {
+          this.warning = null;
+        }, 5000);
       }
 
       this.processing = true;

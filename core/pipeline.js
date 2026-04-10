@@ -27,49 +27,24 @@ import {
   dimensionsFromPreset,
   calculateCustomResize,
   needsSpeed,
+  CODEC_DEFINITIONS,
 } from "./video.js";
 
-/** Codec id → label shown in UI */
-export const CODEC_OPTIONS = [
-  {
-    id: "h264",
-    mbCodec: "avc",
-    label: "H.264 (MP4)",
-    ext: ".mp4",
-    fmt: Mp4OutputFormat,
-  },
-  {
-    id: "hevc",
-    mbCodec: "hevc",
-    label: "H.265 / HEVC (MP4)",
-    ext: ".mp4",
-    fmt: Mp4OutputFormat,
-  },
-  {
-    id: "vp8",
-    mbCodec: "vp8",
-    label: "VP8 (WebM)",
-    ext: ".webm",
-    fmt: WebMOutputFormat,
-  },
-  {
-    id: "vp9",
-    mbCodec: "vp9",
-    label: "VP9 (WebM)",
-    ext: ".webm",
-    fmt: WebMOutputFormat,
-  },
-  {
-    id: "av1",
-    mbCodec: "av1",
-    label: "AV1 (MP4/WebM)",
-    ext: ".mp4",
-    fmt: Mp4OutputFormat,
-  },
-];
+/** Re-export for external use if needed */
+export const CODEC_OPTIONS = CODEC_DEFINITIONS;
 
-/** Lookup table */
-const BY_ID = Object.fromEntries(CODEC_OPTIONS.map((c) => [c.id, c]));
+/** Internal lookup with output format classes attached for pipeline use */
+const FMT_MAP = {
+  h264: Mp4OutputFormat,
+  hevc: Mp4OutputFormat,
+  vp8: WebMOutputFormat,
+  vp9: WebMOutputFormat,
+  av1: Mp4OutputFormat,
+};
+
+const BY_ID = Object.fromEntries(
+  CODEC_DEFINITIONS.map((c) => [c.id, { ...c, fmt: FMT_MAP[c.id] }]),
+);
 
 /**
  * Estimate a reasonable bitrate for a given resolution (~0.08 bpp at 30 fps).
@@ -184,6 +159,18 @@ export async function processVideo({
   const srcW = videoTrack.displayWidth;
   const srcH = videoTrack.displayHeight;
 
+  // Log source color space for debugging
+  const srcColorSpace = videoTrack.colorSpace;
+  if (srcColorSpace) {
+    const csName = srcColorSpace.name ?? JSON.stringify(srcColorSpace);
+    console.log(`[pipeline] Source color space: ${csName}`);
+    // Warn if source is HDR (BT.2020, PQ, HLG)
+    const csStr = JSON.stringify(srcColorSpace).toLowerCase();
+    if (csStr.includes("bt2020") || csStr.includes("pq") || csStr.includes("hlg")) {
+      console.warn("[pipeline] HDR source detected. Output will be tone-mapped to SDR (BT.709).");
+    }
+  }
+
   /* ── 2. Resolve output dimensions ──────────────────────────────── */
   let outW = srcW;
   let outH = srcH;
@@ -249,6 +236,13 @@ export async function processVideo({
   const videoOpts = {
     codec: videoCodec,
     bitrate: vidBitrate,
+    // Ensure SDR color space compatibility for output
+    // H.264 only supports BT.601/BT.709; force BT.709 for max compatibility
+    colorSpace: {
+      primaries: "bt709",
+      transfer: "bt709",
+      matrix: "bt709",
+    },
     ...(needsResize ? { width: outW, height: outH, fit: "contain" } : {}),
     ...(doSpeed
       ? {
