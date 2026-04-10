@@ -70,7 +70,7 @@ export default function createApp() {
         supported: codec.decodeSupported,
         hardware: codec.hardwareDecode,
         label: codec.decodeSupported
-          ? (codec.hardwareDecode ? "Hardware accelerated" : "Software decode only")
+          ? (codec.hardwareDecode ? "Hardware accelerated" : "May not use hardware acceleration")
           : "Not supported",
       };
     },
@@ -79,11 +79,16 @@ export default function createApp() {
       return this.selectedCodecObj?.hardwareDecode ?? false;
     },
 
+    get isSoftwareDecode() {
+      const codec = this.selectedCodecObj;
+      return codec && codec.decodeSupported && !codec.hardwareDecode;
+    },
+
     get decodeTooltip() {
       const codec = this.selectedCodecObj;
       if (!codec) return "";
       if (!codec.decodeSupported) return "Browser does not support decoding this codec";
-      if (!codec.hardwareDecode) return "Software decoding only (may use more CPU)";
+      if (!codec.hardwareDecode) return "May not use hardware acceleration (higher CPU usage)";
       return "Hardware accelerated decoding";
     },
 
@@ -159,7 +164,7 @@ export default function createApp() {
             const tooltipParts = [];
             if (!encodeOk) tooltipParts.push("Encode not supported");
             if (!decodeOk) tooltipParts.push("Decode not supported");
-            if (decodeOk && !hardwareDecode) tooltipParts.push("Software decode only");
+            if (decodeOk && !hardwareDecode) tooltipParts.push("May not use hardware acceleration");
 
             return {
               id: def.id,

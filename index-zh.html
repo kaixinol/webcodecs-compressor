@@ -313,6 +313,47 @@
         background: rgba(239, 83, 80, 0.2);
       }
 
+      /* software decode + GPU warnings */
+      .sw-decode-warning {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.625rem;
+        background: rgba(255, 183, 77, 0.1);
+        border: 1px solid rgba(255, 183, 77, 0.3);
+        border-radius: 8px;
+        font-size: 0.75rem;
+        color: #ffb74d;
+        line-height: 1.4;
+      }
+
+      .sw-decode-warning .warn-icon {
+        font-size: 1rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .gpu-notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-top: 0.375rem;
+        padding: 0.5rem 0.625rem;
+        background: rgba(255, 183, 77, 0.08);
+        border: 1px solid rgba(255, 183, 77, 0.2);
+        border-radius: 8px;
+        font-size: 0.75rem;
+        color: #ffcc80;
+        line-height: 1.4;
+      }
+
+      .gpu-notice .warn-icon {
+        font-size: 1rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
       /* metadata */
       .meta-section {
         margin-top: 0.5rem;
@@ -782,6 +823,20 @@
               </template>
             </div>
           </template>
+
+          <!-- 硬件加速提示（条件显示） -->
+          <template x-if="isSoftwareDecode">
+            <div class="sw-decode-warning">
+              <span class="warn-icon">⚠️</span>
+              <span>此编码可能未使用硬件加速 — 可能导致更高的 CPU 占用和功耗。</span>
+            </div>
+          </template>
+
+          <!-- GPU 设置提示（始终显示） -->
+          <div class="gpu-notice">
+            <span class="warn-icon">ℹ️</span>
+            <span>使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。</span>
+          </div>
         </div>
 
         <!-- Quality mode -->
@@ -904,20 +959,7 @@
       <!-- Resolution warning toast -->
       <template x-if="warning">
         <div class="toast-warning">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#ffb74d"
-            stroke-width="2"
-          >
-            <path
-              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-            />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
+          <span class="warn-icon">⚠️</span>
           <span x-text="warning"></span>
         </div>
       </template>
