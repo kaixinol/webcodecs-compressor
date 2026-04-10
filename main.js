@@ -60,6 +60,30 @@ export default function createApp() {
       return this.selectedCodecObj?.tooltip || "Not supported";
     },
 
+    get decodeStatus() {
+      const codec = this.selectedCodecObj;
+      if (!codec) return null;
+      return {
+        supported: codec.decodeSupported,
+        hardware: codec.hardwareDecode,
+        label: codec.decodeSupported
+          ? (codec.hardwareDecode ? "Hardware accelerated" : "Software decode only")
+          : "Not supported",
+      };
+    },
+
+    get canHardwareDecode() {
+      return this.selectedCodecObj?.hardwareDecode ?? false;
+    },
+
+    get decodeTooltip() {
+      const codec = this.selectedCodecObj;
+      if (!codec) return "";
+      if (!codec.decodeSupported) return "Browser does not support decoding this codec";
+      if (!codec.hardwareDecode) return "Software decoding only (may use more CPU)";
+      return "Hardware accelerated decoding";
+    },
+
     get resolutionDisabled() {
       return (preset) => {
         if (!this.metadata?.video) return false;
@@ -95,38 +119,52 @@ export default function createApp() {
     async _detectCodecs() {
       try {
         const mb = await import("mediabunny");
-        const tests = [
-          { id: "h264", label: "H.264 (MP4)", mbCodec: "avc" },
-          { id: "hevc", label: "H.265 / HEVC (MP4)", mbCodec: "hevc" },
-          { id: "vp8", label: "VP8 (WebM)", mbCodec: "vp8" },
-          { id: "vp9", label: "VP9 (WebM)", mbCodec: "vp9" },
-          { id: "av1", label: "AV1 (MP4/WebM)", mbCodec: "av1" },
+
+        const codecTests = [
+          { id: "h264", label: "H.264 (MP4)", mbCodec: "avc", decodeConfig: { type: "file", video: { contentType: 'video/mp4; codecs="avc1.42E01E"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
+          { id: "hevc", label: "H.265 / HEVC (MP4)", mbCodec: "hevc", decodeConfig: { type: "file", video: { contentType: 'video/mp4; codecs="hev1.1.6.L93.B0"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
+          { id: "vp8", label: "VP8 (WebM)", mbCodec: "vp8", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="vp8"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
+          { id: "vp9", label: "VP9 (WebM)", mbCodec: "vp9", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="vp09.00.10.08"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
+          { id: "av1", label: "AV1 (MP4/WebM)", mbCodec: "av1", decodeConfig: { type: "file", video: { contentType: 'video/webm; codecs="av01.0.05M.08"', width: 1280, height: 720, bitrate: 1e6, framerate: 30 } } },
         ];
 
         const results = await Promise.all(
-          tests.map(async (t) => {
+          codecTests.map(async (t) => {
+            let encodeOk = false;
+            let decodeOk = false;
+            let hardwareDecode = false;
+
+            // Check encoding support
             try {
-              const ok = await mb.canEncodeVideo(t.mbCodec, {
+              encodeOk = await mb.canEncodeVideo(t.mbCodec, {
                 width: 1280,
                 height: 720,
                 bitrate: 1e6,
               });
-              return {
-                id: t.id,
-                label: t.label,
-                supported: ok,
-                tooltip: ok
-                  ? ""
-                  : `Browser does not support encoding ${t.label}`,
-              };
-            } catch {
-              return {
-                id: t.id,
-                label: t.label,
-                supported: false,
-                tooltip: `Cannot check ${t.label}`,
-              };
+            } catch {}
+
+            // Check decoding support using MediaCapabilities
+            if (navigator.mediaCapabilities) {
+              try {
+                const decodeInfo = await navigator.mediaCapabilities.decodingInfo(t.decodeConfig);
+                decodeOk = decodeInfo.supported;
+                hardwareDecode = decodeInfo.powerEfficient;
+              } catch {}
             }
+
+            const tooltipParts = [];
+            if (!encodeOk) tooltipParts.push("Encode not supported");
+            if (!decodeOk) tooltipParts.push("Decode not supported");
+            if (decodeOk && !hardwareDecode) tooltipParts.push("Software decode only");
+
+            return {
+              id: t.id,
+              label: t.label,
+              supported: encodeOk,
+              decodeSupported: decodeOk,
+              hardwareDecode,
+              tooltip: tooltipParts.join(". ") || `Supported${hardwareDecode ? " (hardware decode)" : ""}`,
+            };
           }),
         );
 
@@ -136,7 +174,7 @@ export default function createApp() {
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264 (MP4)", supported: true, tooltip: "" },
+          { id: "h264", label: "H.264 (MP4)", supported: true, decodeSupported: true, hardwareDecode: true, tooltip: "" },
         ];
       }
     },
