@@ -22,8 +22,6 @@ export default function createApp() {
 
     metadata: null,
     codecs: [],
-    hoveredCodec: null,
-    badgeTooltipId: null,
 
     currentConversion: null,
 
@@ -362,24 +360,6 @@ export default function createApp() {
         }, 3000);
       }
       return true;
-    },
-
-    /* ── codec tooltip ──────────────────────────────────────────── */
-    onCodecHover() {
-      if (this.selectedUnsupported) {
-        this.hoveredCodec = this.settings.codec;
-      } else {
-        this.hoveredCodec = null;
-      }
-    },
-
-    showBadgeTooltip(id) {
-      if (this.badgeTooltipId === id) {
-        this.badgeTooltipId = null;
-      } else {
-        this.badgeTooltipId = id;
-        alert(this.codecs.find((c) => c.id === id)?.tooltip || "Not supported");
-      }
     },
 
     /* ── processing ─────────────────────────────────────────────── */

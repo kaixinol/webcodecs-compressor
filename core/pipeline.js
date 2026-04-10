@@ -30,9 +30,6 @@ import {
   CODEC_DEFINITIONS,
 } from "./video.js";
 
-/** Re-export for external use if needed */
-export const CODEC_OPTIONS = CODEC_DEFINITIONS;
-
 /** Internal lookup with output format classes attached for pipeline use */
 const FMT_MAP = {
   h264: Mp4OutputFormat,

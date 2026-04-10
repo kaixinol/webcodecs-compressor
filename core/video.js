@@ -45,11 +45,6 @@ export const CODEC_DEFINITIONS = [
   },
 ];
 
-/** Lookup table by id */
-export const CODEC_BY_ID = Object.fromEntries(
-  CODEC_DEFINITIONS.map((c) => [c.id, c]),
-);
-
 /**
  * Common resolution presets.
  */

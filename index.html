@@ -410,15 +410,29 @@
       }
 
       /* progress */
-      .progress-bar-bg {
+      progress {
+        width: 100%;
         height: 8px;
-        background: #333;
+        appearance: none;
+        -webkit-appearance: none;
+        border: none;
         border-radius: 4px;
+        background: #333;
         overflow: hidden;
       }
 
-      .progress-bar-fill {
-        height: 100%;
+      progress::-webkit-progress-bar {
+        background: #333;
+        border-radius: 4px;
+      }
+
+      progress::-webkit-progress-value {
+        background: linear-gradient(90deg, #81c784, #4caf50);
+        border-radius: 4px;
+        transition: width 0.3s;
+      }
+
+      progress::-moz-progress-bar {
         background: linear-gradient(90deg, #81c784, #4caf50);
         border-radius: 4px;
         transition: width 0.3s;
@@ -755,8 +769,6 @@
           <div
             class="codec-wrap"
             :class="{ 'show-tooltip': selectedUnsupported }"
-            @mouseover="onCodecHover"
-            @mouseleave="hoveredCodec = null"
           >
             <select x-model="settings.codec">
               <template x-for="c in codecs" :key="c.id">
@@ -778,7 +790,7 @@
               <template x-for="c in disabledCodecs" :key="c.id">
                 <span
                   class="badge-disabled"
-                  @click="showBadgeTooltip(c.id)"
+                  :title="c.tooltip || 'Not supported'"
                   x-text="c.label + ' \u2717'"
                 ></span>
               </template>
@@ -937,12 +949,7 @@
       <!-- Progress -->
       <template x-if="processing || progress > 0">
         <div style="margin-top: 1rem">
-          <div class="progress-bar-bg">
-            <div
-              class="progress-bar-fill"
-              :style="'width:' + progress * 100 + '%'"
-            ></div>
-          </div>
+          <progress :value="progress" max="1"></progress>
           <p class="status processing" x-text="statusMessage"></p>
         </div>
       </template>
@@ -971,103 +978,6 @@
         </div>
       </template>
     </div>
-
-    <!-- i18n Translations -->
-    <script>
-      // Simple i18n implementation
-      const translations = {
-        'zh-CN': {
-          title: '视频压缩工具',
-          subtitle: '本地视频处理 &mdash; MediaBunny &amp; WebCodecs',
-          uploadHint: '点击或拖拽视频文件到此处',
-          sourceFileTitle: '源文件信息',
-          general: '常规',
-          fileLabel: '文件',
-          sizeLabel: '大小',
-          containerLabel: '容器格式',
-          durationLabel: '时长',
-          avgBitrateLabel: '平均码率',
-          videoLabel: '视频',
-          audioLabel: '音频',
-          codecLabel: '编码格式',
-          codedSizeLabel: '编码尺寸',
-          displaySizeLabel: '显示尺寸',
-          frameRateLabel: '帧率',
-          rotationLabel: '旋转角度',
-          bitrateLabel: '码率',
-          pixelAspectLabel: '像素宽高比',
-          colorSpaceLabel: '色彩空间',
-          keyFrameIntervalLabel: '关键帧间隔',
-          channelsLabel: '声道数',
-          sampleRateLabel: '采样率',
-          noAudio: '无音频轨道',
-          videoCodecLabel: '视频编码',
-          qualityModeLabel: '质量模式',
-          compressAuto: '压缩（自动）',
-          originalQuality: '原始质量',
-          resolutionLabel: '分辨率',
-          playbackSpeedLabel: '播放速度',
-          keepAudioLabel: '保留音频轨道',
-          autoDownloadLabel: '处理完成后自动下载',
-          cancelButton: '取消',
-          processingComplete: '处理完成！',
-          downloadLink: '下载'
-        },
-        'en': {
-          title: 'Video Compressor',
-          subtitle: 'Local video processing &mdash; MediaBunny &amp; WebCodecs',
-          uploadHint: 'Click or drag video file here',
-          sourceFileTitle: 'Source file info',
-          general: 'General',
-          fileLabel: 'File',
-          sizeLabel: 'Size',
-          containerLabel: 'Container',
-          durationLabel: 'Duration',
-          avgBitrateLabel: 'Avg. bitrate',
-          videoLabel: 'Video',
-          audioLabel: 'Audio',
-          codecLabel: 'Codec',
-          codedSizeLabel: 'Coded size',
-          displaySizeLabel: 'Display size',
-          frameRateLabel: 'Frame rate',
-          rotationLabel: 'Rotation',
-          bitrateLabel: 'Bitrate',
-          pixelAspectLabel: 'Pixel aspect',
-          colorSpaceLabel: 'Color space',
-          keyFrameIntervalLabel: 'Key-frame interval',
-          channelsLabel: 'Channels',
-          sampleRateLabel: 'Sample rate',
-          noAudio: 'No audio track',
-          videoCodecLabel: 'Video codec',
-          qualityModeLabel: 'Quality mode',
-          compressAuto: 'Compress (auto)',
-          originalQuality: 'Original quality',
-          resolutionLabel: 'Resolution',
-          playbackSpeedLabel: 'Playback speed',
-          keepAudioLabel: 'Keep audio track',
-          autoDownloadLabel: 'Auto-download after processing',
-          cancelButton: 'Cancel',
-          processingComplete: 'Processing complete!',
-          downloadLink: 'Download'
-        }
-      };
-
-      function applyTranslations(lang) {
-        const t = translations[lang] || translations['en'];
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-          const key = el.getAttribute('data-i18n');
-          if (t[key]) {
-            el.innerHTML = t[key];
-          }
-        });
-      }
-
-      // Apply translations on page load
-      document.addEventListener('DOMContentLoaded', () => {
-        const currentLang = document.documentElement.lang || 'en';
-        applyTranslations(currentLang);
-      });
-    </script>
 
     <script type="module">
       import registerApp from "./main.js";
