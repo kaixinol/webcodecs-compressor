@@ -3,7 +3,7 @@
  * Enables offline functionality and caching
  */
 
-const CACHE_NAME = 'video-compressor-v1';
+const CACHE_NAME = 'video-compressor-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,7 +12,8 @@ const ASSETS_TO_CACHE = [
   './core/pipeline.js',
   './core/video.js',
   './manifest.json',
-  'https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js'
+  './vendor/alpine.min.js',
+  './vendor/mediabunny.min.mjs'
 ];
 
 // Install event - cache assets
