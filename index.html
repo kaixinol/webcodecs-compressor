@@ -94,8 +94,8 @@
           <p>Click or drag video file here</p>
         </div>
 
-        <template x-if="file">
-          <div class="file-info">
+      <template x-if="file">
+        <div class="file-info">
             <span class="icon">&#x1f3ac;</span>
             <span class="name" x-text="file.name"></span>
             <span class="size" x-text="formatSize(file.size)"></span>
@@ -231,6 +231,9 @@
           </template>
         </div>
       </template>
+      <template x-if="sourceDecodeSupported === false">
+        <p class="status error">This browser cannot decode the selected video.</p>
+      </template>
 
       <!-- Settings -->
       <div class="card">
@@ -245,8 +248,8 @@
               <template x-for="c in codecs" :key="c.id">
                 <option
                   :value="c.id"
-                  :disabled="!c.supported"
-                  x-text="c.label + (c.supported ? '' : '  \u2717')"
+                  :disabled="!c.encodeSupported"
+                  x-text="c.label + (c.encodeSupported ? '' : '  \u2717')"
                 ></option>
               </template>
             </select>

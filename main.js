@@ -22,6 +22,7 @@ export default function createApp() {
 
     metadata: null,
     codecs: [],
+    sourceDecodeSupported: null,
 
     currentConversion: null,
 
@@ -43,11 +44,11 @@ export default function createApp() {
 
     /* ── computed ───────────────────────────────────────────────── */
     get canStart() {
-      return this.file && !this.processing;
+      return this.file && !this.processing && this.sourceDecodeSupported !== false;
     },
 
     get disabledCodecs() {
-      return this.codecs.filter((c) => !c.supported);
+      return this.codecs.filter((c) => !c.encodeSupported);
     },
 
     get selectedCodecObj() {
@@ -56,7 +57,7 @@ export default function createApp() {
 
     get selectedUnsupported() {
       const obj = this.selectedCodecObj;
-      return obj && !obj.supported;
+      return obj && !obj.encodeSupported;
     },
 
     get unsupportedTooltip() {
@@ -67,11 +68,15 @@ export default function createApp() {
       const codec = this.selectedCodecObj;
       if (!codec) return null;
       return {
-        supported: codec.decodeSupported,
+        supported: codec.outputDecodeSupported,
         hardware: codec.hardwareDecode,
-        label: codec.decodeSupported
-          ? (codec.hardwareDecode ? "Hardware accelerated" : "May not use hardware acceleration")
-          : "Not supported",
+        label: codec.outputDecodeSupported === false
+          ? "Not supported"
+          : codec.outputDecodeSupported === true
+            ? (codec.hardwareDecode === true
+              ? "Hardware accelerated"
+              : "May not use hardware acceleration")
+            : "Unknown",
       };
     },
 
@@ -81,15 +86,20 @@ export default function createApp() {
 
     get isSoftwareDecode() {
       const codec = this.selectedCodecObj;
-      return codec && codec.decodeSupported && !codec.hardwareDecode;
+      return codec && codec.outputDecodeSupported && !codec.hardwareDecode;
     },
 
     get decodeTooltip() {
       const codec = this.selectedCodecObj;
       if (!codec) return "";
-      if (!codec.decodeSupported) return "Browser does not support decoding this codec";
-      if (!codec.hardwareDecode) return "May not use hardware acceleration (higher CPU usage)";
-      return "Hardware accelerated decoding";
+      if (codec.outputDecodeSupported === false) return "Browser may not play this output codec";
+      if (codec.outputDecodeSupported === true && codec.hardwareDecode === false) {
+        return "May not use hardware acceleration (higher CPU usage)";
+      }
+      if (codec.outputDecodeSupported === true && codec.hardwareDecode === true) {
+        return "Hardware accelerated decoding";
+      }
+      return "Output playback support could not be determined";
     },
 
     get resolutionDisabled() {
@@ -131,8 +141,8 @@ export default function createApp() {
         const results = await Promise.all(
           CODEC_DEFINITIONS.map(async (def) => {
             let encodeOk = false;
-            let decodeOk = false;
-            let hardwareDecode = false;
+            let outputDecodeOk = null;
+            let hardwareDecode = null;
 
             // Check encoding support
             try {
@@ -143,47 +153,47 @@ export default function createApp() {
               });
             } catch {}
 
-            // Check decoding support using MediaCapabilities
+            // Check whether the browser can play the generated output.
             if (navigator.mediaCapabilities) {
               try {
                 const decodeInfo = await navigator.mediaCapabilities.decodingInfo({
                   type: "file",
                   video: {
-                    contentType: def.decodeMimeType,
+                    contentType: def.outputMimeType,
                     width: 1280,
                     height: 720,
                     bitrate: 1e6,
                     framerate: 30,
                   },
                 });
-                decodeOk = decodeInfo.supported;
+                outputDecodeOk = decodeInfo.supported;
                 hardwareDecode = decodeInfo.powerEfficient;
               } catch {}
             }
 
             const tooltipParts = [];
             if (!encodeOk) tooltipParts.push("Encode not supported");
-            if (!decodeOk) tooltipParts.push("Decode not supported");
-            if (decodeOk && !hardwareDecode) tooltipParts.push("May not use hardware acceleration");
+            if (outputDecodeOk === false) tooltipParts.push("Output may not play in this browser");
+            if (outputDecodeOk && hardwareDecode === false) tooltipParts.push("May not use hardware acceleration");
 
             return {
               id: def.id,
               label: def.label,
-              supported: encodeOk,
-              decodeSupported: decodeOk,
+              encodeSupported: encodeOk,
+              outputDecodeSupported: outputDecodeOk,
               hardwareDecode,
-              tooltip: tooltipParts.join(". ") || `Supported${hardwareDecode ? " (hardware decode)" : ""}`,
+              tooltip: tooltipParts.join(". ") || "Encoding supported",
             };
           }),
         );
 
         this.codecs = results;
-        const first = results.find((c) => c.supported);
+        const first = results.find((c) => c.encodeSupported);
         if (first) this.settings.codec = first.id;
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264 (MP4)", supported: true, decodeSupported: true, hardwareDecode: true, tooltip: "" },
+          { id: "h264", label: "H.264 (MP4)", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
         ];
       }
     },
@@ -205,6 +215,7 @@ export default function createApp() {
       this.error = null;
       this.downloadUrl = null;
       this.metadata = null;
+      this.sourceDecodeSupported = null;
 
       try {
         const { Input, ALL_FORMATS, BlobSource } = await import("mediabunny");
@@ -221,6 +232,10 @@ export default function createApp() {
 
         const videoTrack = await input.getPrimaryVideoTrack();
         const audioTrack = await input.getPrimaryAudioTrack();
+
+        this.sourceDecodeSupported = videoTrack
+          ? await this._checkSourceDecode(videoTrack)
+          : false;
 
         let videoInfo = null;
         if (videoTrack) {
@@ -294,6 +309,25 @@ export default function createApp() {
         }
       } catch (e) {
         console.warn("[app] metadata read failed", e);
+        this.sourceDecodeSupported = false;
+      }
+    },
+
+    async _checkSourceDecode(videoTrack) {
+      if (!videoTrack?.codec || !("VideoDecoder" in window)) return null;
+
+      try {
+        const config = {
+          codec: videoTrack.codec,
+          codedWidth: videoTrack.codedWidth,
+          codedHeight: videoTrack.codedHeight,
+        };
+        if (videoTrack.description) config.description = videoTrack.description;
+        const result = await VideoDecoder.isConfigSupported(config);
+        return result.supported;
+      } catch (e) {
+        console.warn("[app] source decode detection failed", e);
+        return false;
       }
     },
 
@@ -301,6 +335,7 @@ export default function createApp() {
       this.file = null;
       this.metadata = null;
       this.error = null;
+      this.sourceDecodeSupported = null;
       this.downloadUrl = null;
       this.settings.resolution = "original";
       this.settings.customWidth = null;
@@ -370,6 +405,10 @@ export default function createApp() {
     /* ── processing ─────────────────────────────────────────────── */
     async startProcessing() {
       if (!this.file || this.processing) return;
+      if (this.sourceDecodeSupported === false) {
+        this.error = "The selected video cannot be decoded by this browser.";
+        return;
+      }
 
       // Safety check: custom resolution must not exceed source
       if (this.settings.resolution === "custom") {
