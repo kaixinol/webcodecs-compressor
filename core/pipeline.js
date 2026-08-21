@@ -173,23 +173,25 @@ export async function processVideo({
     throw new Error("No audio track found in input file.");
   }
 
+  const sourceAudioCodec = audioTrack ? await audioTrack.getCodec() : null;
+
   const compatibleAudioCodecs = outputMode === "audio-only"
     ? AUDIO_CODECS
     : (cfg.audioCodecs || []);
   const resolvedAudioCodec = audioCodec === "auto"
-    ? (compatibleAudioCodecs.includes(audioTrack?.codec)
-      ? audioTrack.codec
+    ? (compatibleAudioCodecs.includes(sourceAudioCodec)
+      ? sourceAudioCodec
       : compatibleAudioCodecs[0])
     : audioCodec;
   const outputFormat = outputMode === "audio-only"
     ? new (AUDIO_FMT_MAP[resolvedAudioCodec] || Mp4OutputFormat)()
     : new cfg.fmt();
 
-  const srcW = videoTrack.displayWidth;
-  const srcH = videoTrack.displayHeight;
+  const srcW = await videoTrack.getDisplayWidth();
+  const srcH = await videoTrack.getDisplayHeight();
 
   // Log source color space for debugging
-  const srcColorSpace = videoTrack.colorSpace;
+  const srcColorSpace = await videoTrack.getColorSpace();
   if (srcColorSpace) {
     const csName = srcColorSpace.name ?? JSON.stringify(srcColorSpace);
     console.log(`[pipeline] Source color space: ${csName}`);
@@ -240,7 +242,11 @@ export async function processVideo({
   if (bitrate > 0) {
     vidBitrate = bitrate;
   } else if (qualityPreset === "original") {
-    vidBitrate = originalQualityBitrate(videoTrack.bitrate, outW, outH);
+    vidBitrate = originalQualityBitrate(
+      await videoTrack.getAverageBitrate(),
+      outW,
+      outH,
+    );
   } else {
     vidBitrate = estimateBitrate(outW, outH);
   }
@@ -290,7 +296,7 @@ export async function processVideo({
   if (outputMode === "video-only") {
     audioOpts.discard = true;
   } else if (audioTrack) {
-    const needsAudioTranscode = audioCodec !== "auto" || resolvedAudioCodec !== audioTrack.codec;
+    const needsAudioTranscode = audioCodec !== "auto" || resolvedAudioCodec !== sourceAudioCodec;
     if (outputMode === "audio-only" || needsAudioTranscode) {
       audioOpts.codec = resolvedAudioCodec;
       audioOpts.bitrate = audioBitrate;

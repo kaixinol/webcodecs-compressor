@@ -3,7 +3,7 @@
  * Enables offline functionality and caching
  */
 
-const CACHE_NAME = 'video-compressor-v2';
+const CACHE_NAME = 'video-compressor-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

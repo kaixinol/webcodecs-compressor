@@ -254,7 +254,7 @@
               <div class="codec-support-row codec-support-header">
                 <span>Video codec</span>
                 <span>Encode</span>
-                <span>Playback</span>
+                <span>Decode</span>
               </div>
               <template x-for="c in codecs" :key="c.id">
                 <div class="codec-support-row">
@@ -306,10 +306,13 @@
             x-text="gpuDiagnosticStatus === 'running' ? 'Running compatibility test…' : 'Run GPU compatibility test'"
           ></button>
           <template x-if="gpuDiagnosticStatus === 'passed'">
-            <p class="diagnostic-status success">GPU/WebCodecs test passed.</p>
+            <p class="diagnostic-status success" x-text="gpuDiagnosticMessage"></p>
           </template>
           <template x-if="gpuDiagnosticStatus === 'failed'">
             <p class="diagnostic-status error" x-text="'Compatibility test failed: ' + gpuDiagnosticMessage"></p>
+          </template>
+          <template x-if="gpuDiagnosticStatus === 'partial'">
+            <p class="diagnostic-status warning" x-text="gpuDiagnosticMessage"></p>
           </template>
         </div>
 

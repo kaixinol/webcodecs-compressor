@@ -24,6 +24,10 @@ export const CODEC_DEFINITIONS = [
     webCodecsCodec: "hev1.1.6.L93.B0",
     ext: ".mp4",
     outputMimeType: 'video/mp4; codecs="hev1.1.6.L93.B0"',
+    outputMimeTypes: [
+      'video/mp4; codecs="hvc1.1.6.L93.B0"',
+      'video/mp4; codecs="hev1.1.6.L93.B0"',
+    ],
     audioCodecs: ["aac"],
   },
   {

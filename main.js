@@ -119,28 +119,21 @@ export default function createApp() {
       }
     },
 
-    async runGpuDiagnostic() {
-      if (this.gpuDiagnosticStatus === "running") return;
+    async _testVideoCodec(codec) {
+      if (!("VideoEncoder" in window) || !("VideoDecoder" in window)) {
+        throw new Error("WebCodecs is unavailable");
+      }
 
-      this.gpuDiagnosticStatus = "running";
-      this.gpuDiagnosticMessage = "";
-
-      let encoder = null;
-      let decoder = null;
-      const frames = [];
-      const decodedColors = [];
       const canvas = document.createElement("canvas");
       canvas.width = 160;
       canvas.height = 90;
       const context = canvas.getContext("2d", { willReadFrequently: true });
+      const chunks = [];
+      const decodedColors = [];
+      let encoder = null;
+      let decoder = null;
 
       try {
-        const codec = this.selectedCodecObj;
-        if (!codec?.webCodecsCodec) throw new Error("No video codec selected");
-        if (!("VideoEncoder" in window) || !("VideoDecoder" in window)) {
-          throw new Error("WebCodecs is unavailable");
-        }
-
         const config = {
           codec: codec.webCodecsCodec,
           width: canvas.width,
@@ -149,21 +142,36 @@ export default function createApp() {
           framerate: 30,
           hardwareAcceleration: "prefer-hardware",
         };
-        const supported = await VideoEncoder.isConfigSupported(config);
-        if (!supported.supported) throw new Error("Selected encoder configuration is unsupported");
+        let encoderConfig = config;
+        let hardwareRequested = true;
+        let supported = await VideoEncoder.isConfigSupported(encoderConfig);
+        if (!supported.supported) {
+          // A browser may support the codec through MediaBunny or software
+          // WebCodecs while rejecting the hardware preference. Retry without
+          // the hint before treating the diagnostic as unavailable.
+          encoderConfig = { ...config };
+          delete encoderConfig.hardwareAcceleration;
+          hardwareRequested = false;
+          supported = await VideoEncoder.isConfigSupported(encoderConfig);
+        }
+        if (!supported.supported) {
+          const error = new Error("Native WebCodecs configuration unsupported");
+          error.code = "unsupported";
+          throw error;
+        }
 
         let decoderConfig = null;
         let encoderError = null;
         encoder = new VideoEncoder({
           output: (chunk, metadata) => {
-            frames.push(chunk);
+            chunks.push(chunk);
             decoderConfig ||= metadata?.decoderConfig || null;
           },
           error: (error) => {
             encoderError = error;
           },
         });
-        encoder.configure(supported.config || config);
+        encoder.configure(supported.config || encoderConfig);
 
         for (const [timestamp, color] of [[0, "#e53935"], [33_333, "#1e88e5"]]) {
           context.fillStyle = color;
@@ -177,17 +185,14 @@ export default function createApp() {
         encoder.close();
         encoder = null;
 
-        if (!frames.length) throw new Error("Encoder produced no frames");
-        const decodeConfig = decoderConfig || config;
+        if (!chunks.length) throw new Error("Encoder produced no frames");
         let decoderError = null;
         decoder = new VideoDecoder({
           output: (frame) => {
             try {
-              if (context) {
-                context.drawImage(frame, 0, 0, canvas.width, canvas.height);
-                const pixels = context.getImageData(0, 0, 1, 1).data;
-                decodedColors.push([pixels[0], pixels[1], pixels[2]]);
-              }
+              context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+              const pixels = context.getImageData(0, 0, 1, 1).data;
+              decodedColors.push([pixels[0], pixels[1], pixels[2]]);
             } finally {
               frame.close();
             }
@@ -196,29 +201,55 @@ export default function createApp() {
             decoderError = error;
           },
         });
-        decoder.configure(decodeConfig);
-        for (const chunk of frames) decoder.decode(chunk);
+        decoder.configure(decoderConfig || encoderConfig);
+        for (const chunk of chunks) decoder.decode(chunk);
         await decoder.flush();
         if (decoderError) throw decoderError;
-        decoder.close();
-        decoder = null;
-
         if (decodedColors.length < 2) throw new Error("Decoder produced too few frames");
+
         const colorDistance = decodedColors[0].reduce(
           (sum, value, index) => sum + Math.abs(value - decodedColors[1][index]),
           0,
         );
         if (colorDistance < 30) throw new Error("Decoded test frames look identical");
-
-        this.gpuDiagnosticStatus = "passed";
-        this.gpuDiagnosticMessage = "The selected codec passed the GPU compatibility test.";
-      } catch (error) {
-        console.warn("[diagnostic] GPU compatibility test failed", error);
-        this.gpuDiagnosticStatus = "failed";
-        this.gpuDiagnosticMessage = error?.message || "The GPU compatibility test failed.";
+        return { hardwareRequested };
+      } finally {
         try { encoder?.close(); } catch {}
         try { decoder?.close(); } catch {}
       }
+    },
+
+    async runGpuDiagnostic() {
+      if (this.gpuDiagnosticStatus === "running") return;
+
+      this.gpuDiagnosticStatus = "running";
+      this.gpuDiagnosticMessage = "";
+
+      const codecs = this.codecs.filter(
+        (codec) => codec.encodeSupported && codec.webCodecsCodec,
+      );
+      if (!codecs.length) {
+        this.gpuDiagnosticStatus = "failed";
+        this.gpuDiagnosticMessage = "No encodable video codecs detected";
+        return;
+      }
+
+      const results = [];
+      for (const codec of codecs) {
+        try {
+          const result = await this._testVideoCodec(codec);
+          results.push(`${codec.label}: passed${result.hardwareRequested ? " (hardware preferred)" : " (software/standard path)"}`);
+        } catch (error) {
+          console.warn(`[diagnostic] ${codec.id} test failed`, error);
+          const status = error?.code === "unsupported" ? "unavailable" : "failed";
+          results.push(`${codec.label}: ${status} (${error?.message || "unknown error"})`);
+        }
+      }
+
+      const failed = results.some((result) => result.includes(": failed"));
+      const unavailable = results.some((result) => result.includes(": unavailable"));
+      this.gpuDiagnosticStatus = failed ? "failed" : unavailable ? "partial" : "passed";
+      this.gpuDiagnosticMessage = results.join("; ");
     },
 
     /* ── init: detect codecs ────────────────────────────────────── */
@@ -247,20 +278,59 @@ export default function createApp() {
 
             // Check whether the browser can play the generated output.
             if (navigator.mediaCapabilities) {
-              try {
-                const decodeInfo = await navigator.mediaCapabilities.decodingInfo({
-                  type: "file",
-                  video: {
-                    contentType: def.outputMimeType,
-                    width: 1280,
-                    height: 720,
-                    bitrate: 1e6,
-                    framerate: 30,
-                  },
-                });
-                outputDecodeOk = decodeInfo.supported;
-                hardwareDecode = decodeInfo.powerEfficient;
-              } catch {}
+              const mimeTypes = def.outputMimeTypes || [def.outputMimeType];
+              const videoElement = document.createElement("video");
+              const decodeResults = await Promise.all(
+                mimeTypes.map(async (contentType) => {
+                  try {
+                    const mediaInfo = await navigator.mediaCapabilities.decodingInfo({
+                      type: "file",
+                      video: {
+                        contentType,
+                        width: 1280,
+                        height: 720,
+                        bitrate: 1e6,
+                        framerate: 30,
+                      },
+                    });
+                    return {
+                      supported: mediaInfo.supported || videoElement.canPlayType(contentType) !== "",
+                      powerEfficient: mediaInfo.powerEfficient,
+                    };
+                  } catch {
+                    return {
+                      supported: videoElement.canPlayType(contentType) !== "",
+                      powerEfficient: false,
+                    };
+                  }
+                }),
+              );
+              const supportedDecode = decodeResults.find((result) => result.supported);
+              outputDecodeOk = Boolean(supportedDecode);
+              hardwareDecode = supportedDecode?.powerEfficient ?? false;
+            }
+
+            // MediaCapabilities describes file playback, while this app
+            // processes tracks through WebCodecs. Accept a positive native
+            // decoder result as well, especially for codecs such as HEVC
+            // whose hvc1/hev1 MIME forms vary between browsers.
+            if (!outputDecodeOk && "VideoDecoder" in window) {
+              const decoderCodecs = [def.webCodecsCodec];
+              if (def.id === "hevc") decoderCodecs.push("hvc1.1.6.L93.B0");
+              const decoderResults = await Promise.all(
+                decoderCodecs.map(async (codec) => {
+                  try {
+                    return await VideoDecoder.isConfigSupported({
+                      codec,
+                      codedWidth: 1280,
+                      codedHeight: 720,
+                    });
+                  } catch {
+                    return null;
+                  }
+                }),
+              );
+              outputDecodeOk = decoderResults.some((result) => result?.supported);
             }
 
             const tooltipParts = [];
@@ -268,15 +338,17 @@ export default function createApp() {
             if (outputDecodeOk === false) tooltipParts.push("Output may not play in this browser");
             if (outputDecodeOk && hardwareDecode === false) tooltipParts.push("May not use hardware acceleration");
 
-            return {
+            const result = {
               id: def.id,
               label: def.label,
               audioCodecs: def.audioCodecs,
+              webCodecsCodec: def.webCodecsCodec,
               encodeSupported: encodeOk,
               outputDecodeSupported: outputDecodeOk,
               hardwareDecode,
               tooltip: tooltipParts.join(". ") || "Encoding supported",
             };
+            return result;
           }),
         );
 
@@ -302,7 +374,7 @@ export default function createApp() {
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264 (MP4)", audioCodecs: ["aac"], encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
+          { id: "h264", label: "H.264 (MP4)", audioCodecs: ["aac"], webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
         ];
         this.audioCodecs = [];
       }
@@ -338,7 +410,8 @@ export default function createApp() {
         const duration = await input.computeDuration();
         const firstTs = await input.getFirstTimestamp();
         const effDuration = duration - firstTs;
-        const containerType = input.format?.name ?? "unknown";
+        const inputFormat = await input.getFormat();
+        const containerType = inputFormat?.name ?? "unknown";
 
         const videoTrack = await input.getPrimaryVideoTrack();
         const audioTrack = await input.getPrimaryAudioTrack();
@@ -349,8 +422,12 @@ export default function createApp() {
 
         let videoInfo = null;
         if (videoTrack) {
-          const fps = videoTrack.duration ? 1 / videoTrack.duration : NaN;
-          const ar = videoTrack.pixelAspectRatio;
+          const frameRateMetrics = await videoTrack.computeFrameRateMetrics({
+            targetPacketCount: 256,
+          });
+          const videoBitrate = await videoTrack.getAverageBitrate();
+          const fps = frameRateMetrics?.bestGuessFrameRate ?? NaN;
+          const ar = await videoTrack.getPixelAspectRatio();
           const par =
             ar &&
             ar.numerator != null &&
@@ -358,18 +435,18 @@ export default function createApp() {
             ar.denominator !== 0
               ? `${ar.numerator}:${ar.denominator}`
               : "1:1";
-          const cs = videoTrack.colorSpace;
+          const cs = await videoTrack.getColorSpace();
           const colorName =
             cs && cs.name ? cs.name : cs ? JSON.stringify(cs) : "unknown";
           videoInfo = {
-            codec: videoTrack.codec,
-            codedW: videoTrack.codedWidth,
-            codedH: videoTrack.codedHeight,
-            displayW: videoTrack.displayWidth,
-            displayH: videoTrack.displayHeight,
+            codec: await videoTrack.getCodec(),
+            codedW: await videoTrack.getCodedWidth(),
+            codedH: await videoTrack.getCodedHeight(),
+            displayW: await videoTrack.getDisplayWidth(),
+            displayH: await videoTrack.getDisplayHeight(),
             fps: isFinite(fps) ? fps.toFixed(2) : "variable",
-            rotation: videoTrack.rotation || 0,
-            bitrate: videoTrack.bitrate,
+            rotation: (await videoTrack.getRotation()) || 0,
+            bitrate: videoBitrate,
             aspectRatio: par,
             colorSpace: colorName,
             keyFrameInterval: videoTrack.keyFrameDistance,
@@ -378,12 +455,15 @@ export default function createApp() {
 
         let audioInfo = null;
         if (audioTrack) {
+          const audioChannels = await audioTrack.getNumberOfChannels();
+          const audioSampleRate = await audioTrack.getSampleRate();
+          const audioBitrate = await audioTrack.getAverageBitrate();
           audioInfo = {
-            codec: audioTrack.codec,
-            channels: audioTrack.numberOfChannels,
-            channelLabel: this._channelLabel(audioTrack.numberOfChannels),
-            sampleRate: audioTrack.sampleRate,
-            bitrate: audioTrack.bitrate,
+            codec: await audioTrack.getCodec(),
+            channels: audioChannels,
+            channelLabel: this._channelLabel(audioChannels),
+            sampleRate: audioSampleRate,
+            bitrate: audioBitrate,
           };
         }
 
@@ -424,21 +504,8 @@ export default function createApp() {
     },
 
     async _checkSourceDecode(videoTrack) {
-      if (!videoTrack?.codec || !("VideoDecoder" in window)) return null;
-
-      try {
-        const config = {
-          codec: videoTrack.codec,
-          codedWidth: videoTrack.codedWidth,
-          codedHeight: videoTrack.codedHeight,
-        };
-        if (videoTrack.description) config.description = videoTrack.description;
-        const result = await VideoDecoder.isConfigSupported(config);
-        return result.supported;
-      } catch (e) {
-        console.warn("[app] source decode detection failed", e);
-        return false;
-      }
+      if (!videoTrack) return false;
+      return await videoTrack.canDecode();
     },
 
     clearFile() {

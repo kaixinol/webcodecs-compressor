@@ -36,7 +36,7 @@ jobs:
             https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js \
             --output vendor/alpine.min.js
           curl --fail --location --retry 3 \
-            https://cdn.jsdelivr.net/npm/mediabunny@1.40.1/dist/bundles/mediabunny.min.mjs \
+            https://cdn.jsdelivr.net/npm/mediabunny@1.55.1/dist/bundles/mediabunny.min.mjs \
             --output vendor/mediabunny.min.mjs
 
           test -s vendor/alpine.min.js

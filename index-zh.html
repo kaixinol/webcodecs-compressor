@@ -254,7 +254,7 @@
               <div class="codec-support-row codec-support-header">
                 <span>视频编码</span>
                 <span>编码</span>
-                <span>播放</span>
+                <span>解码</span>
               </div>
               <template x-for="c in codecs" :key="c.id">
                 <div class="codec-support-row">
@@ -306,10 +306,13 @@
             x-text="gpuDiagnosticStatus === 'running' ? '正在运行兼容性检测…' : '运行 GPU 兼容性检测'"
           ></button>
           <template x-if="gpuDiagnosticStatus === 'passed'">
-            <p class="diagnostic-status success">GPU/WebCodecs 检测通过。</p>
+            <p class="diagnostic-status success" x-text="gpuDiagnosticMessage"></p>
           </template>
           <template x-if="gpuDiagnosticStatus === 'failed'">
             <p class="diagnostic-status error" x-text="'兼容性检测失败：' + gpuDiagnosticMessage"></p>
+          </template>
+          <template x-if="gpuDiagnosticStatus === 'partial'">
+            <p class="diagnostic-status warning" x-text="gpuDiagnosticMessage"></p>
           </template>
         </div>
 

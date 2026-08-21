@@ -417,6 +417,11 @@
         overflow-wrap: anywhere;
       }
 
+      .diagnostic-status.warning {
+        color: #ffb74d;
+        overflow-wrap: anywhere;
+      }
+
       /* progress */
       progress {
         width: 100%;
