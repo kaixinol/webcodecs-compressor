@@ -376,16 +376,23 @@
           />
         </div>
 
-        <!-- Audio toggle -->
+        <!-- Audio encoding -->
         <div class="form-group" x-show="!metadata || metadata.audio">
-          <div class="checkbox-group">
-            <input
-              type="checkbox"
-              id="keep_audio"
-              x-model="settings.keepAudio"
-            />
-            <label for="keep_audio">Keep audio track</label>
-          </div>
+          <label for="audio_codec">Audio codec</label>
+          <select id="audio_codec" x-model="settings.audioCodec" @change="syncAudioCodec()">
+            <template x-for="c in audioCodecChoices" :key="c.id">
+              <option :value="c.id" x-text="c.label"></option>
+            </template>
+          </select>
+          <label for="audio_bitrate" style="margin-top: 0.75rem">Audio bitrate (kbps)</label>
+          <input
+            id="audio_bitrate"
+            type="number"
+            x-model.number="settings.audioBitrate"
+            min="32"
+            max="512"
+            step="8"
+          />
         </div>
 
         <!-- Auto-download -->

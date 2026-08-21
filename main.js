@@ -3,7 +3,11 @@
  * Exports a factory function for Alpine registration.
  */
 
-import { RESOLUTION_PRESETS, CODEC_DEFINITIONS } from "./core/video.js";
+import {
+  RESOLUTION_PRESETS,
+  CODEC_DEFINITIONS,
+  AUDIO_CODEC_DEFINITIONS,
+} from "./core/video.js";
 
 /** SDR-only codecs for HDR warning */
 const SDR_ONLY_CODEC_IDS = ["h264", "vp8"];
@@ -22,6 +26,7 @@ export default function createApp() {
 
     metadata: null,
     codecs: [],
+    audioCodecs: [],
     sourceDecodeSupported: null,
 
     currentConversion: null,
@@ -33,7 +38,8 @@ export default function createApp() {
       customHeight: null,
       speed: 1.0,
       bitrate: 0,
-      keepAudio: true,
+      audioCodec: "auto",
+      audioBitrate: 128,
       qualityPreset: "auto",
       autoDownload: true,
     },
@@ -53,6 +59,14 @@ export default function createApp() {
 
     get selectedCodecObj() {
       return this.codecs.find((c) => c.id === this.settings.codec) || null;
+    },
+
+    get audioCodecChoices() {
+      const allowed = this.selectedCodecObj?.audioCodecs ?? [];
+      return [
+        { id: "auto", label: "Auto (keep source codec)" },
+        ...this.audioCodecs.filter((c) => allowed.includes(c.id)),
+      ];
     },
 
     get selectedUnsupported() {
@@ -129,6 +143,12 @@ export default function createApp() {
       };
     },
 
+    syncAudioCodec() {
+      if (!this.audioCodecChoices.some((c) => c.id === this.settings.audioCodec)) {
+        this.settings.audioCodec = "auto";
+      }
+    },
+
     /* ── init: detect codecs ────────────────────────────────────── */
     async init() {
       await this._detectCodecs();
@@ -179,6 +199,7 @@ export default function createApp() {
             return {
               id: def.id,
               label: def.label,
+              audioCodecs: def.audioCodecs,
               encodeSupported: encodeOk,
               outputDecodeSupported: outputDecodeOk,
               hardwareDecode,
@@ -190,11 +211,28 @@ export default function createApp() {
         this.codecs = results;
         const first = results.find((c) => c.encodeSupported);
         if (first) this.settings.codec = first.id;
+
+        const audioResults = await Promise.all(
+          AUDIO_CODEC_DEFINITIONS.map(async (def) => {
+            let encodeSupported = false;
+            try {
+              encodeSupported = await mb.canEncodeAudio(def.id, {
+                numberOfChannels: 2,
+                sampleRate: 48000,
+                bitrate: 128000,
+              });
+            } catch {}
+            return { ...def, encodeSupported };
+          }),
+        );
+        this.audioCodecs = audioResults.filter((c) => c.encodeSupported);
+        this.syncAudioCodec();
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264 (MP4)", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
+          { id: "h264", label: "H.264 (MP4)", audioCodecs: ["aac"], encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
         ];
+        this.audioCodecs = [];
       }
     },
 
@@ -449,7 +487,8 @@ export default function createApp() {
           customWidth: this.settings.customWidth || undefined,
           customHeight: this.settings.customHeight || undefined,
           speed: this.settings.speed || 1.0,
-          keepAudio: this.settings.keepAudio,
+          audioCodec: this.settings.audioCodec,
+          audioBitrate: this.settings.audioBitrate * 1000,
           bitrate: this.settings.bitrate ? this.settings.bitrate * 1000 : 0,
           qualityPreset: this.settings.qualityPreset,
           onProgress: (p) => {

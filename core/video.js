@@ -14,6 +14,7 @@ export const CODEC_DEFINITIONS = [
     mbCodec: "avc",
     ext: ".mp4",
     outputMimeType: 'video/mp4; codecs="avc1.42E01E"',
+    audioCodecs: ["aac"],
   },
   {
     id: "hevc",
@@ -21,6 +22,7 @@ export const CODEC_DEFINITIONS = [
     mbCodec: "hevc",
     ext: ".mp4",
     outputMimeType: 'video/mp4; codecs="hev1.1.6.L93.B0"',
+    audioCodecs: ["aac"],
   },
   {
     id: "vp8",
@@ -28,6 +30,7 @@ export const CODEC_DEFINITIONS = [
     mbCodec: "vp8",
     ext: ".webm",
     outputMimeType: 'video/webm; codecs="vp8"',
+    audioCodecs: ["opus", "vorbis"],
   },
   {
     id: "vp9",
@@ -35,6 +38,7 @@ export const CODEC_DEFINITIONS = [
     mbCodec: "vp9",
     ext: ".webm",
     outputMimeType: 'video/webm; codecs="vp09.00.10.08"',
+    audioCodecs: ["opus", "vorbis"],
   },
   {
     id: "av1",
@@ -42,7 +46,14 @@ export const CODEC_DEFINITIONS = [
     mbCodec: "av1",
     ext: ".mp4",
     outputMimeType: 'video/mp4; codecs="av01.0.05M.08"',
+    audioCodecs: ["aac"],
   },
+];
+
+export const AUDIO_CODEC_DEFINITIONS = [
+  { id: "aac", label: "AAC" },
+  { id: "opus", label: "Opus" },
+  { id: "vorbis", label: "Vorbis" },
 ];
 
 /**

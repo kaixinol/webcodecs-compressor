@@ -5,7 +5,7 @@
  * - Resize: via MediaBunny native scaling (width/height/fit)
  * - Speed: via custom process() modifying timestamp/duration on each sample
  * - Codec: via video.codec option (transcodes when needed)
- * - Audio: kept or discarded; timestamps modified via process() when speed != 1
+ * - Audio: optionally re-encoded; timestamps modified via process() when speed != 1
  * - Quality: when qualityPreset === 'original', bitrate is set very high to avoid
  *   perceptible compression (uses source bitrate × 1.2 as target).
  *
@@ -109,7 +109,8 @@ function makeAudioProcessFn(speed) {
  * @param {number} [opts.customWidth] - Custom width (when resolution === 'custom')
  * @param {number} [opts.customHeight] - Custom height (when resolution === 'custom')
  * @param {number} opts.speed - Playback speed multiplier
- * @param {boolean} opts.keepAudio
+ * @param {string} [opts.audioCodec] - auto or an output audio codec
+ * @param {number} [opts.audioBitrate] - Audio bitrate in bps
  * @param {number} [opts.bitrate] - Video bitrate in bps (0 = qualityPreset determines)
  * @param {'auto'|'original'} opts.qualityPreset
  * @param {function(number): void} [opts.onProgress]
@@ -125,7 +126,8 @@ export async function processVideo({
   customWidth,
   customHeight,
   speed = 1.0,
-  keepAudio = true,
+  audioCodec = "auto",
+  audioBitrate = 128_000,
   bitrate = 0,
   qualityPreset = "auto",
   onProgress = null,
@@ -219,7 +221,6 @@ export async function processVideo({
     else if (qualityPreset === "original") parts.push("quality: original");
     if (doSpeed) parts.push(`speed ${speed}×`);
     parts.push(`${cfg.label} @ ${(vidBitrate / 1000).toFixed(0)}kbps`);
-    if (!keepAudio) parts.push("no audio");
     onStatus(parts.join(", "));
   }
 
@@ -252,10 +253,15 @@ export async function processVideo({
   };
 
   const audioOpts = {};
-  if (!keepAudio) {
-    audioOpts.discard = true;
-  } else if (keepAudio && audioTrack && doSpeed) {
-    audioOpts.process = makeAudioProcessFn(speed);
+  if (audioTrack) {
+    if (audioCodec && audioCodec !== "auto") {
+      audioOpts.codec = audioCodec;
+      audioOpts.bitrate = audioBitrate;
+      audioOpts.forceTranscode = true;
+    }
+    if (doSpeed) {
+      audioOpts.process = makeAudioProcessFn(speed);
+    }
   }
 
   /* ── 6. Initialise conversion ──────────────────────────────────── */
