@@ -33,6 +33,7 @@ export default function createApp() {
 
     settings: {
       codec: "h264",
+      outputMode: "muxed",
       resolution: "original",
       customWidth: null,
       customHeight: null,
@@ -62,7 +63,9 @@ export default function createApp() {
     },
 
     get audioCodecChoices() {
-      const allowed = this.selectedCodecObj?.audioCodecs ?? [];
+      const allowed = this.settings.outputMode === "audio-only"
+        ? this.audioCodecs.map((c) => c.id)
+        : (this.selectedCodecObj?.audioCodecs ?? []);
       return [
         { id: "auto", label: "Auto (keep source codec)" },
         ...this.audioCodecs.filter((c) => allowed.includes(c.id)),
@@ -489,6 +492,7 @@ export default function createApp() {
           speed: this.settings.speed || 1.0,
           audioCodec: this.settings.audioCodec,
           audioBitrate: this.settings.audioBitrate * 1000,
+          outputMode: this.settings.outputMode,
           bitrate: this.settings.bitrate ? this.settings.bitrate * 1000 : 0,
           qualityPreset: this.settings.qualityPreset,
           onProgress: (p) => {

@@ -237,8 +237,18 @@
 
       <!-- Settings -->
       <div class="card">
-        <!-- Codec selector with unsupported detection -->
+        <!-- 输出轨道 -->
         <div class="form-group">
+          <label for="output_mode">输出轨道</label>
+          <select id="output_mode" x-model="settings.outputMode" @change="syncAudioCodec()">
+            <option value="muxed">视频 + 音频</option>
+            <option value="video-only">仅视频</option>
+            <option value="audio-only">仅音频</option>
+          </select>
+        </div>
+
+        <!-- Codec selector with unsupported detection -->
+        <div class="form-group" x-show="settings.outputMode !== 'audio-only'">
           <label>视频编码</label>
           <div
             class="codec-wrap"

@@ -39,6 +39,14 @@ const FMT_MAP = {
   av1: Mp4OutputFormat,
 };
 
+const AUDIO_FMT_MAP = {
+  aac: Mp4OutputFormat,
+  opus: WebMOutputFormat,
+  vorbis: WebMOutputFormat,
+};
+
+const AUDIO_CODECS = ["aac", "opus", "vorbis"];
+
 const BY_ID = Object.fromEntries(
   CODEC_DEFINITIONS.map((c) => [c.id, { ...c, fmt: FMT_MAP[c.id] }]),
 );
@@ -69,11 +77,17 @@ export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
 /**
  * Derive output file name.
  */
-export function deriveOutputFileName(originalName, codecId) {
+export function deriveOutputFileName(originalName, codecId, outputMode = "muxed", audioCodec = "aac") {
+  if (outputMode === "audio-only") {
+    const audioExt = { aac: ".m4a", opus: ".webm", vorbis: ".webm" }[audioCodec] || ".m4a";
+    const base = originalName.replace(/\.[^.]+$/, "");
+    return `${base}_audio${audioExt}`;
+  }
   const cfg = BY_ID[codecId];
   const ext = cfg ? cfg.ext : ".mp4";
   const base = originalName.replace(/\.[^.]+$/, "");
-  return `${base}_processed${ext}`;
+  const suffix = outputMode === "video-only" ? "_video" : "_processed";
+  return `${base}${suffix}${ext}`;
 }
 
 /**
@@ -111,6 +125,7 @@ function makeAudioProcessFn(speed) {
  * @param {number} opts.speed - Playback speed multiplier
  * @param {string} [opts.audioCodec] - auto or an output audio codec
  * @param {number} [opts.audioBitrate] - Audio bitrate in bps
+ * @param {'muxed'|'video-only'|'audio-only'} [opts.outputMode]
  * @param {number} [opts.bitrate] - Video bitrate in bps (0 = qualityPreset determines)
  * @param {'auto'|'original'} opts.qualityPreset
  * @param {function(number): void} [opts.onProgress]
@@ -128,6 +143,7 @@ export async function processVideo({
   speed = 1.0,
   audioCodec = "auto",
   audioBitrate = 128_000,
+  outputMode = "muxed",
   bitrate = 0,
   qualityPreset = "auto",
   onProgress = null,
@@ -137,7 +153,6 @@ export async function processVideo({
   const cfg = BY_ID[codec];
   if (!cfg) throw new Error(`Unknown codec: ${codec}`);
   const videoCodec = cfg.mbCodec;
-  const outputFormat = new cfg.fmt();
 
   /* ── 1. Open input ─────────────────────────────────────────────── */
   const input = new Input({
@@ -154,6 +169,21 @@ export async function processVideo({
   const audioTrack = await input.getPrimaryAudioTrack();
 
   if (!videoTrack) throw new Error("No video track found in input file.");
+  if (outputMode === "audio-only" && !audioTrack) {
+    throw new Error("No audio track found in input file.");
+  }
+
+  const compatibleAudioCodecs = outputMode === "audio-only"
+    ? AUDIO_CODECS
+    : (cfg.audioCodecs || []);
+  const resolvedAudioCodec = audioCodec === "auto"
+    ? (compatibleAudioCodecs.includes(audioTrack?.codec)
+      ? audioTrack.codec
+      : compatibleAudioCodecs[0])
+    : audioCodec;
+  const outputFormat = outputMode === "audio-only"
+    ? new (AUDIO_FMT_MAP[resolvedAudioCodec] || Mp4OutputFormat)()
+    : new cfg.fmt();
 
   const srcW = videoTrack.displayWidth;
   const srcH = videoTrack.displayHeight;
@@ -217,6 +247,8 @@ export async function processVideo({
 
   if (onStatus) {
     const parts = [];
+    if (outputMode === "video-only") parts.push("video only");
+    if (outputMode === "audio-only") parts.push("audio only");
     if (needsResize) parts.push(`resize ${srcW}×${srcH} → ${outW}×${outH}`);
     else if (qualityPreset === "original") parts.push("quality: original");
     if (doSpeed) parts.push(`speed ${speed}×`);
@@ -231,33 +263,38 @@ export async function processVideo({
   });
 
   /* ── 5. Build codec conversion options ──────────────────────────── */
-  const videoOpts = {
-    codec: videoCodec,
-    bitrate: vidBitrate,
-    // Ensure SDR color space compatibility for output
-    // H.264 only supports BT.601/BT.709; force BT.709 for max compatibility
-    colorSpace: {
-      primaries: "bt709",
-      transfer: "bt709",
-      matrix: "bt709",
-    },
-    ...(needsResize ? { width: outW, height: outH, fit: "contain" } : {}),
-    ...(doSpeed
-      ? {
-          process: makeVideoProcessFn(speed),
-          ...(needsResize
-            ? { processedWidth: outW, processedHeight: outH }
-            : {}),
-        }
-      : {}),
-  };
+  const videoOpts = outputMode === "audio-only"
+    ? { discard: true }
+    : {
+        codec: videoCodec,
+        bitrate: vidBitrate,
+        // Ensure SDR color space compatibility for output
+        // H.264 only supports BT.601/BT.709; force BT.709 for max compatibility
+        colorSpace: {
+          primaries: "bt709",
+          transfer: "bt709",
+          matrix: "bt709",
+        },
+        ...(needsResize ? { width: outW, height: outH, fit: "contain" } : {}),
+        ...(doSpeed
+          ? {
+              process: makeVideoProcessFn(speed),
+              ...(needsResize
+                ? { processedWidth: outW, processedHeight: outH }
+                : {}),
+            }
+          : {}),
+      };
 
   const audioOpts = {};
-  if (audioTrack) {
-    if (audioCodec && audioCodec !== "auto") {
-      audioOpts.codec = audioCodec;
+  if (outputMode === "video-only") {
+    audioOpts.discard = true;
+  } else if (audioTrack) {
+    const needsAudioTranscode = audioCodec !== "auto" || resolvedAudioCodec !== audioTrack.codec;
+    if (outputMode === "audio-only" || needsAudioTranscode) {
+      audioOpts.codec = resolvedAudioCodec;
       audioOpts.bitrate = audioBitrate;
-      audioOpts.forceTranscode = true;
+      audioOpts.forceTranscode = audioCodec !== "auto";
     }
     if (doSpeed) {
       audioOpts.process = makeAudioProcessFn(speed);
@@ -290,7 +327,7 @@ export async function processVideo({
   /* ── 8. Return ─────────────────────────────────────────────────── */
   const buffer = output.target.buffer;
   const mimeType = output.format.mimeType;
-  const fileName = deriveOutputFileName(file.name, codec);
+  const fileName = deriveOutputFileName(file.name, codec, outputMode, resolvedAudioCodec);
 
   return {
     buffer,
