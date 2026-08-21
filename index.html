@@ -247,53 +247,53 @@
           </select>
         </div>
 
-        <!-- Codec selector with unsupported detection -->
+        <!-- Codec support and selector -->
         <div class="form-group" x-show="settings.outputMode !== 'audio-only'">
-          <label>Video codec</label>
-          <div
-            class="codec-wrap"
-            :class="{ 'show-tooltip': selectedUnsupported }"
-          >
-            <select x-model="settings.codec">
+          <template x-if="!file">
+            <div class="codec-support-list">
+              <div class="codec-support-row codec-support-header">
+                <span>Video codec</span>
+                <span>Encode</span>
+                <span>Playback</span>
+              </div>
               <template x-for="c in codecs" :key="c.id">
-                <option
-                  :value="c.id"
-                  :disabled="!c.encodeSupported"
-                  x-text="c.label + (c.encodeSupported ? '' : '  \u2717')"
-                ></option>
-              </template>
-            </select>
-            <span
-              class="codec-tooltip"
-              x-text="selectedUnsupported ? unsupportedTooltip : ''"
-            ></span>
-          </div>
-
-          <template x-if="disabledCodecs.length">
-            <div class="badges">
-              <template x-for="c in disabledCodecs" :key="c.id">
-                <span
-                  class="badge-disabled"
-                  :title="c.tooltip || 'Not supported'"
-                  x-text="c.label + ' \u2717'"
-                ></span>
+                <div class="codec-support-row">
+                  <span x-text="c.label"></span>
+                  <span
+                    class="codec-support-status"
+                    :class="c.encodeSupported ? 'supported' : 'unsupported'"
+                    x-text="c.encodeSupported ? 'Supported' : 'Unavailable'"
+                  ></span>
+                  <span
+                    class="codec-support-status"
+                    :class="c.outputDecodeSupported === false ? 'unsupported' : (c.outputDecodeSupported === true ? 'supported' : 'unknown')"
+                    x-text="c.outputDecodeSupported === false ? 'Unavailable' : (c.outputDecodeSupported === true ? 'Supported' : 'Unknown')"
+                  ></span>
+                </div>
               </template>
             </div>
           </template>
 
-          <!-- Hardware acceleration notice (conditional) -->
-          <template x-if="isSoftwareDecode">
-            <div class="sw-decode-warning">
-              <span class="warn-icon">⚠️</span>
-              <span>This codec may not use hardware acceleration — higher CPU usage and power consumption may occur.</span>
+          <template x-if="file">
+            <div>
+              <label>Video codec</label>
+              <select
+                x-model="settings.codec"
+                :title="selectedUnsupported ? unsupportedTooltip : ''"
+              >
+                <template x-for="c in codecs" :key="c.id">
+                  <option
+                    :value="c.id"
+                    :disabled="!c.encodeSupported"
+                    x-text="c.label + (c.encodeSupported ? '' : '  \u2717')"
+                  ></option>
+                </template>
+              </select>
+              <template x-if="selectedCodecObj && selectedCodecObj.outputDecodeSupported === false">
+                <p class="codec-output-warning">This browser may not play the selected output.</p>
+              </template>
             </div>
           </template>
-
-          <!-- GPU flag notice (always shown) -->
-          <div class="gpu-notice">
-            <span class="warn-icon">ℹ️</span>
-            <span>Before using, please disable experimental graphics APIs / GPU acceleration in your browser settings. Otherwise it may cause garbled output, black screen, or conversion failures.</span>
-          </div>
         </div>
 
         <!-- Quality mode -->

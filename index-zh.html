@@ -247,53 +247,53 @@
           </select>
         </div>
 
-        <!-- Codec selector with unsupported detection -->
+        <!-- 编码支持和选择 -->
         <div class="form-group" x-show="settings.outputMode !== 'audio-only'">
-          <label>视频编码</label>
-          <div
-            class="codec-wrap"
-            :class="{ 'show-tooltip': selectedUnsupported }"
-          >
-            <select x-model="settings.codec">
+          <template x-if="!file">
+            <div class="codec-support-list">
+              <div class="codec-support-row codec-support-header">
+                <span>视频编码</span>
+                <span>编码</span>
+                <span>播放</span>
+              </div>
               <template x-for="c in codecs" :key="c.id">
-                <option
-                  :value="c.id"
-                  :disabled="!c.encodeSupported"
-                  x-text="c.label + (c.encodeSupported ? '' : '  \u2717')"
-                ></option>
-              </template>
-            </select>
-            <span
-              class="codec-tooltip"
-              x-text="selectedUnsupported ? unsupportedTooltip : ''"
-            ></span>
-          </div>
-
-          <template x-if="disabledCodecs.length">
-            <div class="badges">
-              <template x-for="c in disabledCodecs" :key="c.id">
-                <span
-                  class="badge-disabled"
-                  :title="c.tooltip || 'Not supported'"
-                  x-text="c.label + ' \u2717'"
-                ></span>
+                <div class="codec-support-row">
+                  <span x-text="c.label"></span>
+                  <span
+                    class="codec-support-status"
+                    :class="c.encodeSupported ? 'supported' : 'unsupported'"
+                    x-text="c.encodeSupported ? '支持' : '不支持'"
+                  ></span>
+                  <span
+                    class="codec-support-status"
+                    :class="c.outputDecodeSupported === false ? 'unsupported' : (c.outputDecodeSupported === true ? 'supported' : 'unknown')"
+                    x-text="c.outputDecodeSupported === false ? '不支持' : (c.outputDecodeSupported === true ? '支持' : '未知')"
+                  ></span>
+                </div>
               </template>
             </div>
           </template>
 
-          <!-- 硬件加速提示（条件显示） -->
-          <template x-if="isSoftwareDecode">
-            <div class="sw-decode-warning">
-              <span class="warn-icon">⚠️</span>
-              <span>此编码可能未使用硬件加速 — 可能导致更高的 CPU 占用和功耗。</span>
+          <template x-if="file">
+            <div>
+              <label>视频编码</label>
+              <select
+                x-model="settings.codec"
+                :title="selectedUnsupported ? unsupportedTooltip : ''"
+              >
+                <template x-for="c in codecs" :key="c.id">
+                  <option
+                    :value="c.id"
+                    :disabled="!c.encodeSupported"
+                    x-text="c.label + (c.encodeSupported ? '' : '  \u2717')"
+                  ></option>
+                </template>
+              </select>
+              <template x-if="selectedCodecObj && selectedCodecObj.outputDecodeSupported === false">
+                <p class="codec-output-warning">当前浏览器可能无法播放所选输出。</p>
+              </template>
             </div>
           </template>
-
-          <!-- GPU 设置提示（始终显示） -->
-          <div class="gpu-notice">
-            <span class="warn-icon">ℹ️</span>
-            <span>使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。</span>
-          </div>
         </div>
 
         <!-- Quality mode -->

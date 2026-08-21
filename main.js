@@ -54,10 +54,6 @@ export default function createApp() {
       return this.file && !this.processing && this.sourceDecodeSupported !== false;
     },
 
-    get disabledCodecs() {
-      return this.codecs.filter((c) => !c.encodeSupported);
-    },
-
     get selectedCodecObj() {
       return this.codecs.find((c) => c.id === this.settings.codec) || null;
     },
@@ -78,45 +74,14 @@ export default function createApp() {
     },
 
     get unsupportedTooltip() {
-      return this.selectedCodecObj?.tooltip || "Not supported";
-    },
-
-    get decodeStatus() {
-      const codec = this.selectedCodecObj;
-      if (!codec) return null;
-      return {
-        supported: codec.outputDecodeSupported,
-        hardware: codec.hardwareDecode,
-        label: codec.outputDecodeSupported === false
-          ? "Not supported"
-          : codec.outputDecodeSupported === true
-            ? (codec.hardwareDecode === true
-              ? "Hardware accelerated"
-              : "May not use hardware acceleration")
-            : "Unknown",
-      };
-    },
-
-    get canHardwareDecode() {
-      return this.selectedCodecObj?.hardwareDecode ?? false;
-    },
-
-    get isSoftwareDecode() {
-      const codec = this.selectedCodecObj;
-      return codec && codec.outputDecodeSupported && !codec.hardwareDecode;
-    },
-
-    get decodeTooltip() {
       const codec = this.selectedCodecObj;
       if (!codec) return "";
-      if (codec.outputDecodeSupported === false) return "Browser may not play this output codec";
-      if (codec.outputDecodeSupported === true && codec.hardwareDecode === false) {
-        return "May not use hardware acceleration (higher CPU usage)";
+      const warnings = [];
+      if (!codec.encodeSupported) warnings.push("Encoding not supported");
+      if (codec.outputDecodeSupported === false) {
+        warnings.push("Output playback not supported");
       }
-      if (codec.outputDecodeSupported === true && codec.hardwareDecode === true) {
-        return "Hardware accelerated decoding";
-      }
-      return "Output playback support could not be determined";
+      return warnings.join(". ") || "Supported";
     },
 
     get resolutionDisabled() {

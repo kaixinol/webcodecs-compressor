@@ -210,6 +210,50 @@
       }
 
       /* codec wrapper + tooltip */
+      .codec-support-list {
+        padding: 0.625rem 0.75rem;
+        background: #252525;
+        border-radius: 8px;
+        font-size: 0.8rem;
+      }
+
+      .codec-support-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 5.5rem 5.5rem;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2rem;
+      }
+
+      .codec-support-header {
+        color: #888;
+        font-size: 0.75rem;
+        border-bottom: 1px solid #3a3a3a;
+      }
+
+      .codec-support-status {
+        text-align: center;
+        font-size: 0.75rem;
+      }
+
+      .codec-support-status.supported {
+        color: #81c784;
+      }
+
+      .codec-support-status.unsupported {
+        color: #ef5350;
+      }
+
+      .codec-support-status.unknown {
+        color: #888;
+      }
+
+      .codec-output-warning {
+        margin-top: 0.5rem;
+        color: #ffb74d;
+        font-size: 0.75rem;
+      }
+
       .codec-wrap {
         position: relative;
       }
@@ -244,72 +288,6 @@
 
       .codec-wrap.show-tooltip .codec-tooltip {
         display: block;
-      }
-
-      /* unsupported codec badges */
-      .badges {
-        margin-top: 0.375rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-      }
-
-      .badge-disabled {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 6px;
-        background: rgba(239, 83, 80, 0.12);
-        color: #ef5350;
-        font-size: 0.7rem;
-        cursor: pointer;
-        user-select: none;
-      }
-
-      .badge-disabled:hover {
-        background: rgba(239, 83, 80, 0.2);
-      }
-
-      /* software decode + GPU warnings */
-      .sw-decode-warning {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-        padding: 0.5rem 0.625rem;
-        background: rgba(255, 183, 77, 0.1);
-        border: 1px solid rgba(255, 183, 77, 0.3);
-        border-radius: 8px;
-        font-size: 0.75rem;
-        color: #ffb74d;
-        line-height: 1.4;
-      }
-
-      .sw-decode-warning .warn-icon {
-        font-size: 1rem;
-        line-height: 1;
-        flex-shrink: 0;
-      }
-
-      .gpu-notice {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        margin-top: 0.375rem;
-        padding: 0.5rem 0.625rem;
-        background: rgba(255, 183, 77, 0.08);
-        border: 1px solid rgba(255, 183, 77, 0.2);
-        border-radius: 8px;
-        font-size: 0.75rem;
-        color: #ffcc80;
-        line-height: 1.4;
-      }
-
-      .gpu-notice .warn-icon {
-        font-size: 1rem;
-        line-height: 1;
-        flex-shrink: 0;
       }
 
       /* metadata */
