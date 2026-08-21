@@ -386,6 +386,37 @@
         background: #e53935;
       }
 
+      .btn-secondary {
+        background: #333;
+        color: #e0e0e0;
+        font-size: 0.875rem;
+        padding: 0.625rem;
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: #444;
+      }
+
+      .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .diagnostic-status {
+        margin: 0.5rem 0 0;
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .diagnostic-status.success {
+        color: #81c784;
+      }
+
+      .diagnostic-status.error {
+        color: #ef5350;
+        overflow-wrap: anywhere;
+      }
+
       /* progress */
       progress {
         width: 100%;

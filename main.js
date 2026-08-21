@@ -28,6 +28,8 @@ export default function createApp() {
     codecs: [],
     audioCodecs: [],
     sourceDecodeSupported: null,
+    gpuDiagnosticStatus: "idle",
+    gpuDiagnosticMessage: "",
 
     currentConversion: null,
 
@@ -114,6 +116,108 @@ export default function createApp() {
     syncAudioCodec() {
       if (!this.audioCodecChoices.some((c) => c.id === this.settings.audioCodec)) {
         this.settings.audioCodec = "auto";
+      }
+    },
+
+    async runGpuDiagnostic() {
+      if (this.gpuDiagnosticStatus === "running") return;
+
+      this.gpuDiagnosticStatus = "running";
+      this.gpuDiagnosticMessage = "";
+
+      let encoder = null;
+      let decoder = null;
+      const frames = [];
+      const decodedColors = [];
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 90;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
+      try {
+        const codec = this.selectedCodecObj;
+        if (!codec?.webCodecsCodec) throw new Error("No video codec selected");
+        if (!("VideoEncoder" in window) || !("VideoDecoder" in window)) {
+          throw new Error("WebCodecs is unavailable");
+        }
+
+        const config = {
+          codec: codec.webCodecsCodec,
+          width: canvas.width,
+          height: canvas.height,
+          bitrate: 500_000,
+          framerate: 30,
+          hardwareAcceleration: "prefer-hardware",
+        };
+        const supported = await VideoEncoder.isConfigSupported(config);
+        if (!supported.supported) throw new Error("Selected encoder configuration is unsupported");
+
+        let decoderConfig = null;
+        let encoderError = null;
+        encoder = new VideoEncoder({
+          output: (chunk, metadata) => {
+            frames.push(chunk);
+            decoderConfig ||= metadata?.decoderConfig || null;
+          },
+          error: (error) => {
+            encoderError = error;
+          },
+        });
+        encoder.configure(supported.config || config);
+
+        for (const [timestamp, color] of [[0, "#e53935"], [33_333, "#1e88e5"]]) {
+          context.fillStyle = color;
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          const frame = new VideoFrame(canvas, { timestamp });
+          encoder.encode(frame, { keyFrame: timestamp === 0 });
+          frame.close();
+        }
+        await encoder.flush();
+        if (encoderError) throw encoderError;
+        encoder.close();
+        encoder = null;
+
+        if (!frames.length) throw new Error("Encoder produced no frames");
+        const decodeConfig = decoderConfig || config;
+        let decoderError = null;
+        decoder = new VideoDecoder({
+          output: (frame) => {
+            try {
+              if (context) {
+                context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                const pixels = context.getImageData(0, 0, 1, 1).data;
+                decodedColors.push([pixels[0], pixels[1], pixels[2]]);
+              }
+            } finally {
+              frame.close();
+            }
+          },
+          error: (error) => {
+            decoderError = error;
+          },
+        });
+        decoder.configure(decodeConfig);
+        for (const chunk of frames) decoder.decode(chunk);
+        await decoder.flush();
+        if (decoderError) throw decoderError;
+        decoder.close();
+        decoder = null;
+
+        if (decodedColors.length < 2) throw new Error("Decoder produced too few frames");
+        const colorDistance = decodedColors[0].reduce(
+          (sum, value, index) => sum + Math.abs(value - decodedColors[1][index]),
+          0,
+        );
+        if (colorDistance < 30) throw new Error("Decoded test frames look identical");
+
+        this.gpuDiagnosticStatus = "passed";
+        this.gpuDiagnosticMessage = "The selected codec passed the GPU compatibility test.";
+      } catch (error) {
+        console.warn("[diagnostic] GPU compatibility test failed", error);
+        this.gpuDiagnosticStatus = "failed";
+        this.gpuDiagnosticMessage = error?.message || "The GPU compatibility test failed.";
+        try { encoder?.close(); } catch {}
+        try { decoder?.close(); } catch {}
       }
     },
 

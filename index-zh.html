@@ -296,7 +296,24 @@
           </template>
         </div>
 
-        <!-- Quality mode -->
+        <!-- 可选 GPU 诊断 -->
+        <div class="form-group gpu-diagnostic">
+          <button
+            class="btn btn-secondary"
+            type="button"
+            @click="runGpuDiagnostic()"
+            :disabled="gpuDiagnosticStatus === 'running'"
+            x-text="gpuDiagnosticStatus === 'running' ? '正在运行兼容性检测…' : '运行 GPU 兼容性检测'"
+          ></button>
+          <template x-if="gpuDiagnosticStatus === 'passed'">
+            <p class="diagnostic-status success">GPU/WebCodecs 检测通过。</p>
+          </template>
+          <template x-if="gpuDiagnosticStatus === 'failed'">
+            <p class="diagnostic-status error" x-text="'兼容性检测失败：' + gpuDiagnosticMessage"></p>
+          </template>
+        </div>
+
+        <!-- 质量模式 -->
         <div class="form-group">
           <label>质量模式</label>
           <div class="pill-row">

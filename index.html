@@ -296,6 +296,23 @@
           </template>
         </div>
 
+        <!-- Optional GPU diagnostic -->
+        <div class="form-group gpu-diagnostic">
+          <button
+            class="btn btn-secondary"
+            type="button"
+            @click="runGpuDiagnostic()"
+            :disabled="gpuDiagnosticStatus === 'running'"
+            x-text="gpuDiagnosticStatus === 'running' ? 'Running compatibility test…' : 'Run GPU compatibility test'"
+          ></button>
+          <template x-if="gpuDiagnosticStatus === 'passed'">
+            <p class="diagnostic-status success">GPU/WebCodecs test passed.</p>
+          </template>
+          <template x-if="gpuDiagnosticStatus === 'failed'">
+            <p class="diagnostic-status error" x-text="'Compatibility test failed: ' + gpuDiagnosticMessage"></p>
+          </template>
+        </div>
+
         <!-- Quality mode -->
         <div class="form-group">
           <label>Quality mode</label>
