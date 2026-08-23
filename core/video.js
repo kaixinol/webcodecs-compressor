@@ -10,7 +10,7 @@
 export const CODEC_DEFINITIONS = [
   {
     id: "h264",
-    label: "H.264 (MP4)",
+    label: "H.264",
     mbCodec: "avc",
     webCodecsCodec: "avc1.42001f",
     ext: ".mp4",
@@ -19,7 +19,7 @@ export const CODEC_DEFINITIONS = [
   },
   {
     id: "hevc",
-    label: "H.265 / HEVC (MP4)",
+    label: "H.265 / HEVC",
     mbCodec: "hevc",
     webCodecsCodec: "hev1.1.6.L93.B0",
     ext: ".mp4",
@@ -32,7 +32,7 @@ export const CODEC_DEFINITIONS = [
   },
   {
     id: "vp8",
-    label: "VP8 (WebM)",
+    label: "VP8",
     mbCodec: "vp8",
     webCodecsCodec: "vp8",
     ext: ".webm",
@@ -41,7 +41,7 @@ export const CODEC_DEFINITIONS = [
   },
   {
     id: "vp9",
-    label: "VP9 (WebM)",
+    label: "VP9",
     mbCodec: "vp9",
     webCodecsCodec: "vp09.00.10.08",
     ext: ".webm",
@@ -50,7 +50,7 @@ export const CODEC_DEFINITIONS = [
   },
   {
     id: "av1",
-    label: "AV1 (MP4/WebM)",
+    label: "AV1",
     mbCodec: "av1",
     webCodecsCodec: "av01.0.04M.08",
     ext: ".mp4",
@@ -64,6 +64,12 @@ export const AUDIO_CODEC_DEFINITIONS = [
   { id: "opus", label: "Opus" },
   { id: "vorbis", label: "Vorbis" },
 ];
+
+/** Select a container MediaBunny can write from the uploaded file extension. */
+export function getOutputContainer(originalName) {
+    const extension = originalName.match(/\.([^.]+)$/)?.[1]?.toLowerCase();
+    return extension === "webm" ? "webm" : "mp4";
+}
 
 /**
  * Common resolution presets.

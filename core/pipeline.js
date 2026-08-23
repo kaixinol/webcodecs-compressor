@@ -9,7 +9,8 @@
  * - Quality: when qualityPreset === 'original', bitrate is set very high to avoid
  *   perceptible compression (uses source bitrate × 1.2 as target).
  *
- * HEVC (H.265) is mapped to MP4 container.
+ * The output container follows the input extension where supported. WebM is
+ * preserved as WebM; other containers fall back to MP4.
  */
 
 import {
@@ -28,16 +29,8 @@ import {
   calculateCustomResize,
   needsSpeed,
   CODEC_DEFINITIONS,
+  getOutputContainer,
 } from "./video.js";
-
-/** Internal lookup with output format classes attached for pipeline use */
-const FMT_MAP = {
-  h264: Mp4OutputFormat,
-  hevc: Mp4OutputFormat,
-  vp8: WebMOutputFormat,
-  vp9: WebMOutputFormat,
-  av1: Mp4OutputFormat,
-};
 
 const AUDIO_FMT_MAP = {
   aac: Mp4OutputFormat,
@@ -48,8 +41,14 @@ const AUDIO_FMT_MAP = {
 const AUDIO_CODECS = ["aac", "opus", "vorbis"];
 
 const BY_ID = Object.fromEntries(
-  CODEC_DEFINITIONS.map((c) => [c.id, { ...c, fmt: FMT_MAP[c.id] }]),
+  CODEC_DEFINITIONS.map((c) => [c.id, { ...c }]),
 );
+
+function createOutputFormat(originalName) {
+  return getOutputContainer(originalName) === "webm"
+    ? new WebMOutputFormat()
+    : new Mp4OutputFormat();
+}
 
 /**
  * Estimate a reasonable bitrate for a given resolution (~0.08 bpp at 30 fps).
@@ -77,14 +76,13 @@ export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
 /**
  * Derive output file name.
  */
-export function deriveOutputFileName(originalName, codecId, outputMode = "muxed", audioCodec = "aac") {
+export function deriveOutputFileName(originalName, _codecId, outputMode = "muxed", audioCodec = "aac") {
   if (outputMode === "audio-only") {
     const audioExt = { aac: ".m4a", opus: ".webm", vorbis: ".webm" }[audioCodec] || ".m4a";
     const base = originalName.replace(/\.[^.]+$/, "");
     return `${base}_audio${audioExt}`;
   }
-  const cfg = BY_ID[codecId];
-  const ext = cfg ? cfg.ext : ".mp4";
+  const ext = getOutputContainer(originalName) === "webm" ? ".webm" : ".mp4";
   const base = originalName.replace(/\.[^.]+$/, "");
   const suffix = outputMode === "video-only" ? "_video" : "_processed";
   return `${base}${suffix}${ext}`;
@@ -175,9 +173,10 @@ export async function processVideo({
 
   const sourceAudioCodec = audioTrack ? await audioTrack.getCodec() : null;
 
+  const outputContainer = getOutputContainer(file.name);
   const compatibleAudioCodecs = outputMode === "audio-only"
     ? AUDIO_CODECS
-    : (cfg.audioCodecs || []);
+    : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac"]);
   const resolvedAudioCodec = audioCodec === "auto"
     ? (compatibleAudioCodecs.includes(sourceAudioCodec)
       ? sourceAudioCodec
@@ -185,7 +184,7 @@ export async function processVideo({
     : audioCodec;
   const outputFormat = outputMode === "audio-only"
     ? new (AUDIO_FMT_MAP[resolvedAudioCodec] || Mp4OutputFormat)()
-    : new cfg.fmt();
+    : createOutputFormat(file.name);
 
   const srcW = await videoTrack.getDisplayWidth();
   const srcH = await videoTrack.getDisplayHeight();

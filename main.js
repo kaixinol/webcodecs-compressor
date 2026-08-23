@@ -7,6 +7,7 @@ import {
   RESOLUTION_PRESETS,
   CODEC_DEFINITIONS,
   AUDIO_CODEC_DEFINITIONS,
+  getOutputContainer,
 } from "./core/video.js";
 
 /** SDR-only codecs for HDR warning */
@@ -61,9 +62,12 @@ export default function createApp() {
     },
 
     get audioCodecChoices() {
+      const outputContainer = this.file
+        ? getOutputContainer(this.file.name)
+        : "mp4";
       const allowed = this.settings.outputMode === "audio-only"
         ? this.audioCodecs.map((c) => c.id)
-        : (this.selectedCodecObj?.audioCodecs ?? []);
+        : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac"]);
       return [
         { id: "auto", label: "Auto (keep source codec)" },
         ...this.audioCodecs.filter((c) => allowed.includes(c.id)),
@@ -374,7 +378,7 @@ export default function createApp() {
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264 (MP4)", audioCodecs: ["aac"], webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
+          { id: "h264", label: "H.264", audioCodecs: ["aac"], webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
         ];
         this.audioCodecs = [];
       }
