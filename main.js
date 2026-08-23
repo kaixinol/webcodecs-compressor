@@ -100,6 +100,14 @@ export default function createApp() {
       return warnings.join(". ") || "Supported";
     },
 
+    get showVideoOptions() {
+      return this.settings.outputMode !== "audio-only";
+    },
+
+    get showAudioOptions() {
+      return this.settings.outputMode !== "video-only";
+    },
+
     get resolutionDisabled() {
       return (preset) => {
         if (!this.metadata?.video) return false;

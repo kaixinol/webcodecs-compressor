@@ -249,7 +249,7 @@
         </div>
 
         <!-- 编码支持和选择 -->
-        <div class="form-group" x-show="settings.outputMode !== 'audio-only'">
+        <div class="form-group" x-show="showVideoOptions">
           <template x-if="!file">
             <div class="codec-support-list">
               <div class="codec-support-row codec-support-header">
@@ -298,7 +298,7 @@
         </div>
 
         <!-- 质量模式 -->
-        <div class="form-group">
+        <div class="form-group" x-show="showVideoOptions">
           <label>质量模式</label>
           <div class="pill-row">
             <span
@@ -321,7 +321,7 @@
         </div>
 
         <!-- Resolution -->
-        <div class="form-group">
+        <div class="form-group" x-show="showVideoOptions">
           <label>分辨率</label>
           <div class="pill-row">
             <template x-for="p in presets" :key="p.id">
@@ -361,7 +361,7 @@
         </div>
 
         <!-- Bitrate (auto only) -->
-        <div class="form-group" x-show="settings.qualityPreset === 'auto'">
+        <div class="form-group" x-show="settings.qualityPreset === 'auto' && showVideoOptions">
           <label
             >视频码率
             <span style="color: #666">(kbps, 0 = 自动)</span></label
@@ -390,7 +390,7 @@
         </div>
 
         <!-- 音频编码 -->
-        <div class="form-group" x-show="!metadata || metadata.audio">
+        <div class="form-group" x-show="(!metadata || metadata.audio) && showAudioOptions">
           <label for="audio_codec">音频编码</label>
           <select id="audio_codec" x-model="settings.audioCodec" @change="syncAudioCodec()">
             <template x-for="c in audioCodecChoices" :key="c.id">
