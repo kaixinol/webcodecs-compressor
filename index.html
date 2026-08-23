@@ -349,20 +349,71 @@
           </div>
         </div>
 
-        <!-- Bitrate (auto only) -->
+        <!-- Bitrate & size -->
         <div class="form-group" x-show="settings.qualityPreset === 'auto' && showVideoOptions">
-          <label
-            >Video bitrate
-            <span style="color: #666">(kbps, 0 = auto)</span></label
-          >
-          <input
-            type="number"
-            x-model.number="settings.bitrate"
-            min="0"
-            max="20000"
-            step="100"
-            placeholder="0"
-          />
+          <label>Bitrate &amp; size</label>
+          <div class="pill-row">
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'auto' }"
+              @click="settings.bitrateMode = 'auto'"
+            >
+              Auto
+            </span>
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'manual' }"
+              @click="settings.bitrateMode = 'manual'"
+            >
+              Manual kbps
+            </span>
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'size' }"
+              @click="settings.bitrateMode = 'size'"
+            >
+              Target file size
+            </span>
+            <input
+              type="number"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'manual'"
+              x-model.number="settings.bitrate"
+              min="0"
+              max="20000"
+              step="100"
+              placeholder="kbps"
+              style="width: 90px; margin-left: 0.5rem"
+            />
+            <input
+              type="number"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              x-model.number="settings.targetSizeMB"
+              min="1"
+              max="10000"
+              step="1"
+              placeholder="MiB"
+              style="width: 70px; margin-left: 0.5rem"
+            />
+            <span
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              style="color: #666; font-size: 0.75rem; margin-left: 0.25rem"
+            >
+              (Total output size incl. audio &amp; container — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
+            </span>
+            <div
+              class="checkbox-group"
+              style="margin-top: 0.5rem"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+            >
+              <input type="checkbox" id="enforce_size_limit" x-model="settings.enforceSizeLimit" />
+              <label for="enforce_size_limit"
+                >Strict limit — if first encode exceeds target, discard &amp; re-encode to fit</label
+              >
+            </div>
+          </div>
         </div>
 
         <!-- Speed -->

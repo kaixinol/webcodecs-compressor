@@ -278,6 +278,10 @@ export async function processVideo({
     : {
         codec: videoCodec,
         bitrate: vidBitrate,
+        // Force re-encode so the requested bitrate is actually honoured.
+        // Without this, Mediabunny copies tracks already in the target codec
+        // and silently ignores `bitrate`.
+        forceTranscode: true,
         // Ensure SDR color space compatibility for output
         // H.264 only supports BT.601/BT.709; force BT.709 for max compatibility
         colorSpace: {

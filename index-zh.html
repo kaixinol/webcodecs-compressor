@@ -351,20 +351,71 @@
           </div>
         </div>
 
-        <!-- Bitrate (auto only) -->
+        <!-- 码率与大小 -->
         <div class="form-group" x-show="settings.qualityPreset === 'auto' && showVideoOptions">
-          <label
-            >视频码率
-            <span style="color: #666">(kbps, 0 = 自动)</span></label
-          >
-          <input
-            type="number"
-            x-model.number="settings.bitrate"
-            min="0"
-            max="20000"
-            step="100"
-            placeholder="0"
-          />
+          <label>码率与大小</label>
+          <div class="pill-row">
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'auto' }"
+              @click="settings.bitrateMode = 'auto'"
+            >
+              自动
+            </span>
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'manual' }"
+              @click="settings.bitrateMode = 'manual'"
+            >
+              手动 kbps
+            </span>
+            <span
+              class="pill"
+              x-show="settings.qualityPreset === 'auto'"
+              :class="{ active: settings.bitrateMode === 'size' }"
+              @click="settings.bitrateMode = 'size'"
+            >
+              目标文件大小
+            </span>
+            <input
+              type="number"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'manual'"
+              x-model.number="settings.bitrate"
+              min="0"
+              max="20000"
+              step="100"
+              placeholder="kbps"
+              style="width: 90px; margin-left: 0.5rem"
+            />
+            <input
+              type="number"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              x-model.number="settings.targetSizeMB"
+              min="1"
+              max="10000"
+              step="1"
+              placeholder="MiB"
+              style="width: 70px; margin-left: 0.5rem"
+            />
+            <span
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              style="color: #666; font-size: 0.75rem; margin-left: 0.25rem"
+            >
+              (总输出大小，含音轨与容器 — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
+            </span>
+            <div
+              class="checkbox-group"
+              style="margin-top: 0.5rem"
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+            >
+              <input type="checkbox" id="enforce_size_limit" x-model="settings.enforceSizeLimit" />
+              <label for="enforce_size_limit"
+                >严格限制 — 若首次编码超出目标，则丢弃并重新编码以满足限制</label
+              >
+            </div>
+          </div>
         </div>
 
         <!-- Speed -->

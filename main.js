@@ -42,6 +42,9 @@ export default function createApp() {
       customHeight: null,
       speed: 1.0,
       bitrate: 0,
+      bitrateMode: "auto",
+      targetSizeMB: 10,
+      enforceSizeLimit: false,
       audioCodec: "auto",
       audioBitrate: 128,
       qualityPreset: "auto",
@@ -537,10 +540,52 @@ export default function createApp() {
       this.downloadUrl = null;
       this.currentConversion = null;
 
+      let finalBitrate = 0;
+      let finalAudioBitrate = null;
+      let targetBytes = 0;
+
+      if (this.settings.qualityPreset === "auto") {
+        switch (this.settings.bitrateMode) {
+          case "manual":
+            finalBitrate = this.settings.bitrate * 1000;
+            break;
+          case "size": {
+            // Target is the TOTAL output file size (video + audio + container),
+            // so we subtract the audio budget from the video side.
+            const duration = this.metadata?.duration ?? 0;
+            if (duration > 0) {
+              const speed = this.settings.speed && this.settings.speed !== 1 ? this.settings.speed : 1;
+              const outDur = duration / speed;
+              targetBytes = this.settings.targetSizeMB * 1024 * 1024; // MiB (binary)
+              let audioBytes = 0;
+              if (this.settings.outputMode !== "video-only" && this.metadata?.audio) {
+                const willTranscode = this.settings.audioCodec !== "auto";
+                const estAudioBps = willTranscode
+                  ? this.settings.audioBitrate * 1000
+                  : (this.metadata.audio.bitrate || this.settings.audioBitrate * 1000);
+                audioBytes = (estAudioBps * outDur) / 8; // bits → bytes
+              }
+              if (this.settings.outputMode === "audio-only") {
+                finalBitrate = 0;
+                finalAudioBitrate = Math.floor(targetBytes * 8 / outDur);
+              } else {
+                const videoBytes = Math.max(0, targetBytes - audioBytes);
+                // floor at 1 so the pipeline honours the (tiny) budget instead of
+                // falling back to estimateBitrate when videoBytes is 0
+                finalBitrate = videoBytes > 0 ? Math.floor((videoBytes * 8) / outDur) : 1;
+              }
+            }
+            break;
+          }
+          default:
+            finalBitrate = 0;
+        }
+      }
+
       try {
         const { processVideo } = await import("./core/pipeline.js");
 
-        const result = await processVideo({
+        const baseOpts = {
           file: this.file,
           codec: this.settings.codec,
           resolution: this.settings.resolution,
@@ -548,9 +593,8 @@ export default function createApp() {
           customHeight: this.settings.customHeight || undefined,
           speed: this.settings.speed || 1.0,
           audioCodec: this.settings.audioCodec,
-          audioBitrate: this.settings.audioBitrate * 1000,
+          audioBitrate: finalAudioBitrate ?? this.settings.audioBitrate * 1000,
           outputMode: this.settings.outputMode,
-          bitrate: this.settings.bitrate ? this.settings.bitrate * 1000 : 0,
           qualityPreset: this.settings.qualityPreset,
           onProgress: (p) => {
             this.progress = p;
@@ -561,7 +605,72 @@ export default function createApp() {
           onConversionReady: (conv) => {
             this.currentConversion = conv;
           },
-        });
+        };
+
+        let result = await processVideo({ ...baseOpts, bitrate: finalBitrate });
+
+        // Strict limit mode: if the first encode overshoots the target, discard
+        // it and re-encode with a bitrate scaled down to guarantee we fit under.
+        const wantLimit =
+          this.settings.bitrateMode === "size" && this.settings.enforceSizeLimit;
+        if (wantLimit && result.outputSize > targetBytes) {
+          const dur = this.metadata?.duration || 0;
+          const spd = this.settings.speed && this.settings.speed !== 1 ? this.settings.speed : 1;
+          const outDur = dur / spd;
+          // When audioCodec is "auto" the audio is COPIED (fixed cost) and scaling
+          // its bitrate is a no-op — so we must scale only the controllable part
+          // (video) and treat copied audio + container as a fixed budget.
+          const audioCopied = this.settings.audioCodec === "auto" && !!this.metadata?.audio;
+          const srcAudioBps = this.metadata?.audio?.bitrate || this.settings.audioBitrate * 1000;
+          const containerOH = Math.max(result.outputSize * 0.01, 100 * 1024);
+          let fixedBytes = containerOH;
+          if (audioCopied && outDur > 0) fixedBytes += (srcAudioBps * outDur) / 8;
+          // If copied audio alone eats most of the budget, force audio re-encode too.
+          const mustTranscodeAudio = audioCopied && fixedBytes > targetBytes * 0.8;
+          if (mustTranscodeAudio) fixedBytes = containerOH; // audio now controllable
+          const forcedAudioCodec = mustTranscodeAudio
+            ? (this.audioCodecChoices[0]?.id || "aac")
+            : this.settings.audioCodec;
+          const scaleAudio = !audioCopied || mustTranscodeAudio;
+
+          const baseVid = finalBitrate || 1;
+          const baseAud = finalAudioBitrate ?? this.settings.audioBitrate * 1000;
+
+          // Search the bitrate using ACTUAL measured output sizes. The encoder
+          // doesn't honour requested bitrate linearly (it has a minimum it won't
+          // go below), so predicting a scale is unreliable — measuring is. Lower
+          // bitrate → smaller file; stop at the first result under the target.
+          let hi = baseVid; // first encode at baseVid was already over target
+          let best = null; // result found that is under the target
+          let smallest = result; // fallback: smallest file we managed to produce
+          for (let i = 0; i < 2; i++) {
+            const mid = Math.max(1, Math.floor((1 + hi) / 2));
+            this.statusMessage = `Strict limit: tuning bitrate (${i + 1}/2, ${(mid / 1000).toFixed(0)} kbps)`;
+            const candidate = await processVideo({
+              ...baseOpts,
+              bitrate: mid,
+              audioBitrate: scaleAudio ? Math.floor(baseAud * (mid / baseVid)) : baseAud,
+              audioCodec: forcedAudioCodec,
+            });
+            if (candidate.outputSize < smallest.outputSize) smallest = candidate;
+            if (candidate.outputSize <= targetBytes) {
+              best = candidate; // under limit — good enough, stop here
+              break;
+            } else {
+              hi = mid; // over limit — need a lower bitrate
+            }
+          }
+          if (best) {
+            result = best;
+          } else {
+            // Bitrate alone can't reach the target (encoder floor) — resolution
+            // must be lowered too. Keep the smallest file and warn the user.
+            result = smallest;
+            const msg = `Strict limit: target ${this.formatSize(targetBytes)} can't be reached by lowering the bitrate alone (smallest ~${this.formatSize(smallest.outputSize)}). Lower the resolution as well to meet the limit.`;
+            this.statusMessage = msg;
+            alert(msg);
+          }
+        }
 
         const blob = new Blob([result.buffer], { type: result.mimeType });
         const url = URL.createObjectURL(blob);
