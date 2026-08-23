@@ -335,7 +335,11 @@ export default function createApp() {
           const frameRateMetrics = await videoTrack.computeFrameRateMetrics({
             targetPacketCount: 256,
           });
-          const videoBitrate = await videoTrack.getAverageBitrate();
+          let videoBitrate = null;
+          try {
+            const videoStats = await videoTrack.computePacketStats();
+            videoBitrate = videoStats?.averageBitrate ?? null;
+          } catch {}
           const fps = frameRateMetrics?.bestGuessFrameRate ?? NaN;
           const ar = await videoTrack.getPixelAspectRatio();
           const par =
@@ -359,7 +363,6 @@ export default function createApp() {
             bitrate: videoBitrate,
             aspectRatio: par,
             colorSpace: colorName,
-            keyFrameInterval: videoTrack.keyFrameDistance,
           };
         }
 
@@ -367,7 +370,11 @@ export default function createApp() {
         if (audioTrack) {
           const audioChannels = await audioTrack.getNumberOfChannels();
           const audioSampleRate = await audioTrack.getSampleRate();
-          const audioBitrate = await audioTrack.getAverageBitrate();
+          let audioBitrate = null;
+          try {
+            const audioStats = await audioTrack.computePacketStats();
+            audioBitrate = audioStats?.averageBitrate ?? null;
+          } catch {}
           audioInfo = {
             codec: await audioTrack.getCodec(),
             channels: audioChannels,
