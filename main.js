@@ -318,7 +318,6 @@ export default function createApp() {
           CODEC_DEFINITIONS.map(async (def) => {
             let encodeOk = false;
             let outputDecodeOk = null;
-            let hardwareDecode = null;
 
             // Check encoding support
             try {
@@ -348,19 +347,16 @@ export default function createApp() {
                     });
                     return {
                       supported: mediaInfo.supported || videoElement.canPlayType(contentType) !== "",
-                      powerEfficient: mediaInfo.powerEfficient,
                     };
                   } catch {
                     return {
                       supported: videoElement.canPlayType(contentType) !== "",
-                      powerEfficient: false,
                     };
                   }
                 }),
               );
               const supportedDecode = decodeResults.find((result) => result.supported);
               outputDecodeOk = Boolean(supportedDecode);
-              hardwareDecode = supportedDecode?.powerEfficient ?? false;
             }
 
             // MediaCapabilities describes file playback, while this app
@@ -386,20 +382,12 @@ export default function createApp() {
               outputDecodeOk = decoderResults.some((result) => result?.supported);
             }
 
-            const tooltipParts = [];
-            if (!encodeOk) tooltipParts.push("Encode not supported");
-            if (outputDecodeOk === false) tooltipParts.push("Output may not play in this browser");
-            if (outputDecodeOk && hardwareDecode === false) tooltipParts.push("May not use hardware acceleration");
-
             const result = {
               id: def.id,
               label: def.label,
-              audioCodecs: def.audioCodecs,
               webCodecsCodec: def.webCodecsCodec,
               encodeSupported: encodeOk,
               outputDecodeSupported: outputDecodeOk,
-              hardwareDecode,
-              tooltip: tooltipParts.join(". ") || "Encoding supported",
             };
             return result;
           }),
@@ -427,7 +415,7 @@ export default function createApp() {
       } catch (e) {
         console.warn("[codecs] detection failed", e);
         this.codecs = [
-          { id: "h264", label: "H.264", audioCodecs: ["aac"], webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
+          { id: "h264", label: "H.264", webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null },
         ];
         this.audioCodecs = [];
       }
