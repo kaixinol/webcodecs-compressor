@@ -402,24 +402,14 @@
         cursor: wait;
       }
 
-      .diagnostic-status {
-        margin: 0.5rem 0 0;
-        font-size: 0.75rem;
-        line-height: 1.4;
+      .error-copyable {
+        cursor: copy;
       }
 
-      .diagnostic-status.success {
+      .error-copied {
         color: #81c784;
-      }
-
-      .diagnostic-status.error {
-        color: #ef5350;
-        overflow-wrap: anywhere;
-      }
-
-      .diagnostic-status.warning {
-        color: #ffb74d;
-        overflow-wrap: anywhere;
+        font-size: 0.75rem;
+        margin: 0.5rem 0 0;
       }
 
       /* progress */

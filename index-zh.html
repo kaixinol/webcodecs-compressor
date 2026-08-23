@@ -297,26 +297,6 @@
           </template>
         </div>
 
-        <!-- 可选 GPU 诊断 -->
-        <div class="form-group gpu-diagnostic" x-show="showGpuDiagnostic">
-          <button
-            class="btn btn-secondary"
-            type="button"
-            @click="runGpuDiagnostic()"
-            :disabled="gpuDiagnosticStatus === 'running'"
-            x-text="gpuDiagnosticStatus === 'running' ? '正在运行兼容性检测…' : '运行 GPU 兼容性检测'"
-          ></button>
-          <template x-if="gpuDiagnosticStatus === 'passed'">
-            <p class="diagnostic-status success" x-text="gpuDiagnosticMessage"></p>
-          </template>
-          <template x-if="gpuDiagnosticStatus === 'failed'">
-            <p class="diagnostic-status error" x-text="'兼容性检测失败：' + gpuDiagnosticMessage"></p>
-          </template>
-          <template x-if="gpuDiagnosticStatus === 'partial'">
-            <p class="diagnostic-status warning" x-text="gpuDiagnosticMessage"></p>
-          </template>
-        </div>
-
         <!-- 质量模式 -->
         <div class="form-group">
           <label>质量模式</label>
@@ -476,7 +456,15 @@
 
       <!-- Error -->
       <template x-if="error">
-        <p class="status error" x-text="error"></p>
+        <div>
+          <p
+            class="status error error-copyable"
+            @click="copyError()"
+            title="点击复制错误信息"
+            x-text="'处理失败：' + error"
+          ></p>
+          <p class="error-copied" x-show="errorCopied">错误信息已复制。</p>
+        </div>
       </template>
 
       <!-- Success -->

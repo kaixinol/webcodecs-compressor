@@ -22,6 +22,8 @@ export default function createApp() {
     processing: false,
     progress: 0,
     error: null,
+    errorDetails: "",
+    errorCopied: false,
     statusMessage: "",
     downloadUrl: null,
     outputFileName: "",
@@ -30,10 +32,6 @@ export default function createApp() {
     codecs: [],
     audioCodecs: [],
     sourceDecodeSupported: null,
-    gpuDiagnosticStatus: "idle",
-    gpuDiagnosticMessage: "",
-    showGpuDiagnostic: false,
-
     currentConversion: null,
 
     settings: {
@@ -147,161 +145,6 @@ export default function createApp() {
         }
       }
       this.syncAudioCodec();
-    },
-
-    async _testVideoCodec(codec) {
-      if (!("VideoEncoder" in window) || !("VideoDecoder" in window)) {
-        throw new Error("WebCodecs is unavailable");
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 1920;
-      canvas.height = 1080;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      const chunks = [];
-      let encoder = null;
-      let decoder = null;
-
-      try {
-        const config = {
-          width: canvas.width,
-          height: canvas.height,
-          bitrate: 4_000_000,
-          framerate: 60,
-          hardwareAcceleration: "prefer-hardware",
-        };
-        const codecNames = codec.id === "h264"
-          ? ["avc1.640033", "avc1.4d0033", "avc1.420033", codec.webCodecsCodec]
-          : [codec.webCodecsCodec];
-        let encoderConfig;
-        let hardwareRequested;
-        let supported;
-        for (const codecName of codecNames) {
-          const hardwareConfig = { ...config, codec: codecName };
-          const hardwareResult = await VideoEncoder.isConfigSupported(hardwareConfig);
-          if (hardwareResult.supported) {
-            encoderConfig = hardwareConfig;
-            hardwareRequested = true;
-            supported = hardwareResult;
-            break;
-          }
-          const softwareConfig = { ...hardwareConfig };
-          delete softwareConfig.hardwareAcceleration;
-          const softwareResult = await VideoEncoder.isConfigSupported(softwareConfig);
-          if (softwareResult.supported) {
-            encoderConfig = softwareConfig;
-            hardwareRequested = false;
-            supported = softwareResult;
-            break;
-          }
-        }
-        if (!supported?.supported) {
-          const error = new Error("Native WebCodecs configuration unsupported");
-          error.code = "unsupported";
-          throw error;
-        }
-
-        let decoderConfig = null;
-        let encoderError = null;
-        encoder = new VideoEncoder({
-          output: (chunk, metadata) => {
-            chunks.push(chunk);
-            decoderConfig ||= metadata?.decoderConfig || null;
-          },
-          error: (error) => {
-            encoderError = error;
-          },
-        });
-        encoder.configure(supported.config || encoderConfig);
-
-        for (let i = 0; i < 60; i++) {
-          const timestamp = Math.round(i * 1_000_000 / 60);
-          const color = i % 2 ? "#1e88e5" : "#e53935";
-          context.fillStyle = color;
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          const frame = new VideoFrame(canvas, { timestamp });
-          encoder.encode(frame, { keyFrame: i === 0 });
-          frame.close();
-        }
-        await encoder.flush();
-        if (encoderError) throw encoderError;
-        encoder.close();
-        encoder = null;
-
-        if (!chunks.length) throw new Error("Encoder produced no frames");
-        let decoderError = null;
-        let visualError = null;
-        let decodedFrames = 0;
-        decoder = new VideoDecoder({
-          output: (frame) => {
-            try {
-              context.drawImage(frame, 0, 0, canvas.width, canvas.height);
-              const [r, g, b] = context.getImageData(960, 540, 1, 1).data;
-              const expected = decodedFrames++ % 2 ? [30, 136, 229] : [229, 57, 53];
-              const colorError = Math.abs(r - expected[0]) + Math.abs(g - expected[1]) + Math.abs(b - expected[2]);
-              const black = r < 20 && g < 20 && b < 20;
-              const green = g > r * 1.6 && g > b * 1.3;
-              if (!visualError && (black || green || colorError > 220)) {
-                visualError = new Error(`Invalid frame at ${decodedFrames}: possible black/green frame`);
-              }
-            } finally {
-              frame.close();
-            }
-          },
-          error: (error) => {
-            decoderError = error;
-          },
-        });
-        decoder.configure(decoderConfig || encoderConfig);
-        for (const chunk of chunks) decoder.decode(chunk);
-        await decoder.flush();
-        if (decoderError) throw decoderError;
-        if (visualError) throw visualError;
-        if (decodedFrames !== 60) {
-          throw new Error(`Expected 60 frames, decoded ${decodedFrames}`);
-        }
-        return { hardwareRequested, frames: decodedFrames };
-      } finally {
-        try { encoder?.close(); } catch {}
-        try { decoder?.close(); } catch {}
-      }
-    },
-
-    async runGpuDiagnostic() {
-      if (this.gpuDiagnosticStatus === "running") return;
-
-      this.gpuDiagnosticStatus = "running";
-      this.gpuDiagnosticMessage = "";
-
-      const codecs = this.codecs.filter(
-        (codec) => codec.encodeSupported && codec.outputDecodeSupported && codec.webCodecsCodec,
-      );
-      if (!codecs.length) {
-        this.gpuDiagnosticStatus = "failed";
-        this.gpuDiagnosticMessage = "No codecs with encode and decode support detected";
-        alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
-        return;
-      }
-
-      const results = [];
-      for (const codec of codecs) {
-        try {
-          const result = await this._testVideoCodec(codec);
-          results.push(`${codec.label}: passed, ${result.hardwareRequested ? "hardware preferred" : "software/standard path"}, ${result.frames} frames`);
-        } catch (error) {
-          console.warn(`[diagnostic] ${codec.id} test failed`, error);
-          const status = error?.code === "unsupported" ? "unavailable" : "failed";
-          results.push(`${codec.label}: ${status}, ${error?.message || "unknown error"}`);
-        }
-      }
-
-      const failed = results.some((result) => result.includes(": failed"));
-      const unavailable = results.some((result) => result.includes(": unavailable"));
-      this.gpuDiagnosticStatus = failed ? "failed" : unavailable ? "partial" : "passed";
-      this.gpuDiagnosticMessage = results.join("; ");
-      if (this.gpuDiagnosticStatus === "failed") {
-        alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
-      }
     },
 
     /* ── init: detect codecs ────────────────────────────────────── */
@@ -452,9 +295,8 @@ export default function createApp() {
     async setFile(file) {
       this.file = file;
       this.error = null;
-      this.showGpuDiagnostic = false;
-      this.gpuDiagnosticStatus = "idle";
-      this.gpuDiagnosticMessage = "";
+      this.errorDetails = "";
+      this.errorCopied = false;
       this.downloadUrl = null;
       this.metadata = null;
       this.sourceDecodeSupported = null;
@@ -572,9 +414,8 @@ export default function createApp() {
       this.file = null;
       this.metadata = null;
       this.error = null;
-      this.showGpuDiagnostic = false;
-      this.gpuDiagnosticStatus = "idle";
-      this.gpuDiagnosticMessage = "";
+      this.errorDetails = "";
+      this.errorCopied = false;
       this.sourceDecodeSupported = null;
       this.downloadUrl = null;
       this.settings.resolution = "original";
@@ -675,6 +516,8 @@ export default function createApp() {
       this.processing = true;
       this.progress = 0;
       this.error = null;
+      this.errorDetails = "";
+      this.errorCopied = false;
       this.statusMessage = "Initialising…";
       this.downloadUrl = null;
       this.currentConversion = null;
@@ -717,12 +560,13 @@ export default function createApp() {
           this._triggerDownload(url, result.fileName);
         }
       } catch (err) {
-        console.error("[app] processing error", err);
         if (err?.name === "ConversionCanceledError") {
           this.statusMessage = "Cancelled.";
         } else {
+          this.errorDetails = this._formatErrorDetails(err);
+          console.debug("[app] processing error details:\n%s", this.errorDetails);
           this.error = err?.message ?? "Unexpected error during processing.";
-          this.showGpuDiagnostic = true;
+          alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
           this.statusMessage = "";
         }
       } finally {
@@ -734,6 +578,54 @@ export default function createApp() {
     async cancelProcessing() {
       if (this.currentConversion) {
         await this.currentConversion.cancel();
+      }
+    },
+
+    _formatErrorDetails(error) {
+      return [
+        "[Video Compressor Error]",
+        `message: ${error?.message ?? error ?? "Unknown error"}`,
+        `name: ${error?.name ?? "Error"}`,
+        error?.stack ? `stack:\n${error.stack}` : "",
+      ].filter(Boolean).join("\n");
+    },
+
+    async copyError() {
+      const text = this.errorDetails || this.error || "Unknown error";
+      let copied = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          copied = true;
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          copied = document.execCommand("copy");
+          textarea.remove();
+        }
+      } catch (error) {
+        console.debug("[app] copy error details failed", error);
+      }
+      if (!copied) {
+        alert("复制错误信息失败，请打开开发者工具查看 console.debug 日志。");
+        return;
+      }
+
+      this.errorCopied = true;
+      if (confirm("错误信息已复制，是否提交 GitHub Issue？")) {
+        const params = new URLSearchParams({
+          title: "Video processing failed",
+          body: text.slice(0, 8000),
+        });
+        window.open(
+          `https://github.com/kaixinol/webcodecs-compressor/issues/new?${params}`,
+          "_blank",
+          "noopener,noreferrer",
+        );
       }
     },
 

@@ -297,26 +297,6 @@
           </template>
         </div>
 
-        <!-- Optional GPU diagnostic -->
-        <div class="form-group gpu-diagnostic" x-show="showGpuDiagnostic">
-          <button
-            class="btn btn-secondary"
-            type="button"
-            @click="runGpuDiagnostic()"
-            :disabled="gpuDiagnosticStatus === 'running'"
-            x-text="gpuDiagnosticStatus === 'running' ? 'Running compatibility test…' : 'Run GPU compatibility test'"
-          ></button>
-          <template x-if="gpuDiagnosticStatus === 'passed'">
-            <p class="diagnostic-status success" x-text="gpuDiagnosticMessage"></p>
-          </template>
-          <template x-if="gpuDiagnosticStatus === 'failed'">
-            <p class="diagnostic-status error" x-text="'Compatibility test failed: ' + gpuDiagnosticMessage"></p>
-          </template>
-          <template x-if="gpuDiagnosticStatus === 'partial'">
-            <p class="diagnostic-status warning" x-text="gpuDiagnosticMessage"></p>
-          </template>
-        </div>
-
         <!-- Quality mode -->
         <div class="form-group">
           <label>Quality mode</label>
@@ -469,7 +449,15 @@
 
       <!-- Error -->
       <template x-if="error">
-        <p class="status error" x-text="error"></p>
+        <div>
+          <p
+            class="status error error-copyable"
+            @click="copyError()"
+            title="Click to copy error details"
+            x-text="'Processing failed: ' + error"
+          ></p>
+          <p class="error-copied" x-show="errorCopied">Error details copied.</p>
+        </div>
       </template>
 
       <!-- Success -->
