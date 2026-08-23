@@ -463,6 +463,9 @@
             title="点击复制错误信息"
             x-text="'处理失败：' + error"
           ></p>
+          <button class="btn btn-secondary error-copy-button" type="button" @click="copyError()">
+            复制错误信息
+          </button>
           <p class="error-copied" x-show="errorCopied">错误信息已复制。</p>
         </div>
       </template>

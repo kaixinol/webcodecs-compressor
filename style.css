@@ -406,6 +406,10 @@
         cursor: copy;
       }
 
+      .error-copy-button {
+        margin-top: 0.5rem;
+      }
+
       .error-copied {
         color: #81c784;
         font-size: 0.75rem;

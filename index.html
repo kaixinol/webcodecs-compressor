@@ -456,6 +456,9 @@
             title="Click to copy error details"
             x-text="'Processing failed: ' + error"
           ></p>
+          <button class="btn btn-secondary error-copy-button" type="button" @click="copyError()">
+            Copy error details
+          </button>
           <p class="error-copied" x-show="errorCopied">Error details copied.</p>
         </div>
       </template>

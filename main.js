@@ -594,19 +594,8 @@ export default function createApp() {
       const text = this.errorDetails || this.error || "Unknown error";
       let copied = false;
       try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-          copied = true;
-        } else {
-          const textarea = document.createElement("textarea");
-          textarea.value = text;
-          textarea.style.position = "fixed";
-          textarea.style.opacity = "0";
-          document.body.appendChild(textarea);
-          textarea.select();
-          copied = document.execCommand("copy");
-          textarea.remove();
-        }
+        await navigator.clipboard.writeText(text);
+        copied = true;
       } catch (error) {
         console.debug("[app] copy error details failed", error);
       }
