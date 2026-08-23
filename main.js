@@ -31,6 +31,7 @@ export default function createApp() {
     sourceDecodeSupported: null,
     gpuDiagnosticStatus: "idle",
     gpuDiagnosticMessage: "",
+    showGpuDiagnostic: false,
 
     currentConversion: null,
 
@@ -253,6 +254,7 @@ export default function createApp() {
       if (!codecs.length) {
         this.gpuDiagnosticStatus = "failed";
         this.gpuDiagnosticMessage = "No codecs with encode and decode support detected";
+        alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
         return;
       }
 
@@ -272,6 +274,9 @@ export default function createApp() {
       const unavailable = results.some((result) => result.includes(": unavailable"));
       this.gpuDiagnosticStatus = failed ? "failed" : unavailable ? "partial" : "passed";
       this.gpuDiagnosticMessage = results.join("; ");
+      if (this.gpuDiagnosticStatus === "failed") {
+        alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
+      }
     },
 
     /* ── init: detect codecs ────────────────────────────────────── */
@@ -417,6 +422,9 @@ export default function createApp() {
     async setFile(file) {
       this.file = file;
       this.error = null;
+      this.showGpuDiagnostic = false;
+      this.gpuDiagnosticStatus = "idle";
+      this.gpuDiagnosticMessage = "";
       this.downloadUrl = null;
       this.metadata = null;
       this.sourceDecodeSupported = null;
@@ -534,6 +542,9 @@ export default function createApp() {
       this.file = null;
       this.metadata = null;
       this.error = null;
+      this.showGpuDiagnostic = false;
+      this.gpuDiagnosticStatus = "idle";
+      this.gpuDiagnosticMessage = "";
       this.sourceDecodeSupported = null;
       this.downloadUrl = null;
       this.settings.resolution = "original";
@@ -681,6 +692,7 @@ export default function createApp() {
           this.statusMessage = "Cancelled.";
         } else {
           this.error = err?.message ?? "Unexpected error during processing.";
+          this.showGpuDiagnostic = true;
           this.statusMessage = "";
         }
       } finally {
