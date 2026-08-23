@@ -129,36 +129,47 @@ export default function createApp() {
       }
 
       const canvas = document.createElement("canvas");
-      canvas.width = 160;
-      canvas.height = 90;
+      canvas.width = 1920;
+      canvas.height = 1080;
       const context = canvas.getContext("2d", { willReadFrequently: true });
       const chunks = [];
-      const decodedColors = [];
       let encoder = null;
       let decoder = null;
 
       try {
         const config = {
-          codec: codec.webCodecsCodec,
           width: canvas.width,
           height: canvas.height,
-          bitrate: 500_000,
-          framerate: 30,
+          bitrate: 4_000_000,
+          framerate: 60,
           hardwareAcceleration: "prefer-hardware",
         };
-        let encoderConfig = config;
-        let hardwareRequested = true;
-        let supported = await VideoEncoder.isConfigSupported(encoderConfig);
-        if (!supported.supported) {
-          // A browser may support the codec through MediaBunny or software
-          // WebCodecs while rejecting the hardware preference. Retry without
-          // the hint before treating the diagnostic as unavailable.
-          encoderConfig = { ...config };
-          delete encoderConfig.hardwareAcceleration;
-          hardwareRequested = false;
-          supported = await VideoEncoder.isConfigSupported(encoderConfig);
+        const codecNames = codec.id === "h264"
+          ? ["avc1.640033", "avc1.4d0033", "avc1.420033", codec.webCodecsCodec]
+          : [codec.webCodecsCodec];
+        let encoderConfig;
+        let hardwareRequested;
+        let supported;
+        for (const codecName of codecNames) {
+          const hardwareConfig = { ...config, codec: codecName };
+          const hardwareResult = await VideoEncoder.isConfigSupported(hardwareConfig);
+          if (hardwareResult.supported) {
+            encoderConfig = hardwareConfig;
+            hardwareRequested = true;
+            supported = hardwareResult;
+            break;
+          }
+          const softwareConfig = { ...hardwareConfig };
+          delete softwareConfig.hardwareAcceleration;
+          const softwareResult = await VideoEncoder.isConfigSupported(softwareConfig);
+          if (softwareResult.supported) {
+            encoderConfig = softwareConfig;
+            hardwareRequested = false;
+            supported = softwareResult;
+            break;
+          }
         }
-        if (!supported.supported) {
+        if (!supported?.supported) {
           const error = new Error("Native WebCodecs configuration unsupported");
           error.code = "unsupported";
           throw error;
@@ -177,11 +188,13 @@ export default function createApp() {
         });
         encoder.configure(supported.config || encoderConfig);
 
-        for (const [timestamp, color] of [[0, "#e53935"], [33_333, "#1e88e5"]]) {
+        for (let i = 0; i < 60; i++) {
+          const timestamp = Math.round(i * 1_000_000 / 60);
+          const color = i % 2 ? "#1e88e5" : "#e53935";
           context.fillStyle = color;
           context.fillRect(0, 0, canvas.width, canvas.height);
           const frame = new VideoFrame(canvas, { timestamp });
-          encoder.encode(frame, { keyFrame: timestamp === 0 });
+          encoder.encode(frame, { keyFrame: i === 0 });
           frame.close();
         }
         await encoder.flush();
@@ -191,12 +204,20 @@ export default function createApp() {
 
         if (!chunks.length) throw new Error("Encoder produced no frames");
         let decoderError = null;
+        let visualError = null;
+        let decodedFrames = 0;
         decoder = new VideoDecoder({
           output: (frame) => {
             try {
               context.drawImage(frame, 0, 0, canvas.width, canvas.height);
-              const pixels = context.getImageData(0, 0, 1, 1).data;
-              decodedColors.push([pixels[0], pixels[1], pixels[2]]);
+              const [r, g, b] = context.getImageData(960, 540, 1, 1).data;
+              const expected = decodedFrames++ % 2 ? [30, 136, 229] : [229, 57, 53];
+              const colorError = Math.abs(r - expected[0]) + Math.abs(g - expected[1]) + Math.abs(b - expected[2]);
+              const black = r < 20 && g < 20 && b < 20;
+              const green = g > r * 1.6 && g > b * 1.3;
+              if (!visualError && (black || green || colorError > 220)) {
+                visualError = new Error(`Invalid frame at ${decodedFrames}: possible black/green frame`);
+              }
             } finally {
               frame.close();
             }
@@ -209,14 +230,11 @@ export default function createApp() {
         for (const chunk of chunks) decoder.decode(chunk);
         await decoder.flush();
         if (decoderError) throw decoderError;
-        if (decodedColors.length < 2) throw new Error("Decoder produced too few frames");
-
-        const colorDistance = decodedColors[0].reduce(
-          (sum, value, index) => sum + Math.abs(value - decodedColors[1][index]),
-          0,
-        );
-        if (colorDistance < 30) throw new Error("Decoded test frames look identical");
-        return { hardwareRequested };
+        if (visualError) throw visualError;
+        if (decodedFrames !== 60) {
+          throw new Error(`Expected 60 frames, decoded ${decodedFrames}`);
+        }
+        return { hardwareRequested, frames: decodedFrames };
       } finally {
         try { encoder?.close(); } catch {}
         try { decoder?.close(); } catch {}
@@ -230,11 +248,11 @@ export default function createApp() {
       this.gpuDiagnosticMessage = "";
 
       const codecs = this.codecs.filter(
-        (codec) => codec.encodeSupported && codec.webCodecsCodec,
+        (codec) => codec.encodeSupported && codec.outputDecodeSupported && codec.webCodecsCodec,
       );
       if (!codecs.length) {
         this.gpuDiagnosticStatus = "failed";
-        this.gpuDiagnosticMessage = "No encodable video codecs detected";
+        this.gpuDiagnosticMessage = "No codecs with encode and decode support detected";
         return;
       }
 
@@ -242,11 +260,11 @@ export default function createApp() {
       for (const codec of codecs) {
         try {
           const result = await this._testVideoCodec(codec);
-          results.push(`${codec.label}: passed${result.hardwareRequested ? " (hardware preferred)" : " (software/standard path)"}`);
+          results.push(`${codec.label}: passed, ${result.hardwareRequested ? "hardware preferred" : "software/standard path"}, ${result.frames} frames`);
         } catch (error) {
           console.warn(`[diagnostic] ${codec.id} test failed`, error);
           const status = error?.code === "unsupported" ? "unavailable" : "failed";
-          results.push(`${codec.label}: ${status} (${error?.message || "unknown error"})`);
+          results.push(`${codec.label}: ${status}, ${error?.message || "unknown error"}`);
         }
       }
 
