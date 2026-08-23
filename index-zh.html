@@ -6,24 +6,24 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
     />
-    
+
     <!-- SEO Meta Tags -->
     <title>视频压缩工具 - MediaBunny | 本地 WebCodecs 视频处理</title>
     <meta name="description" content="基于 WebCodecs API 的在线视频压缩工具，完全在本地浏览器中处理，无需上传到服务器，保护您的隐私。支持 H.264、H.265、VP9、AV1 等多种编码格式。" />
     <meta name="keywords" content="视频压缩，WebCodecs，本地处理，在线视频工具，隐私保护，H.264,H.265,VP9,AV1，视频编码，浏览器视频处理，MediaBunny" />
     <meta name="author" content="MediaBunny" />
     <meta name="robots" content="index, follow" />
-    
+
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="视频压缩工具 - MediaBunny | 本地 WebCodecs 视频处理" />
     <meta property="og:description" content="基于 WebCodecs API 的在线视频压缩工具，完全在本地浏览器中处理，无需上传到服务器，保护您的隐私。" />
-    
+
     <!-- Language Alternates -->
     <link rel="alternate" hreflang="en" href="./index.html" />
     <link rel="alternate" hreflang="zh-CN" href="./index-zh.html" />
     <link rel="alternate" hreflang="x-default" href="./index.html" />
-    
+
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#81c784" />
@@ -31,7 +31,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="视频压缩工具" />
-    
+
     <script type="importmap">
       {
         "imports": {
@@ -112,9 +112,6 @@
           <details class="meta-section" open>
             <summary>源文件信息</summary>
             <table class="meta-table">
-              <tr>
-                <th colspan="2" class="meta-section-header">常规</th>
-              </tr>
               <tr>
                 <th>文件</th>
                 <td x-text="metadata.fileName"></td>
@@ -299,7 +296,7 @@
               class="pill"
               :class="{ active: settings.qualityPreset === 'auto' }"
               @click="settings.qualityPreset = 'auto'"
-             
+
             >
               压缩（自动）
             </span>
@@ -307,7 +304,7 @@
               class="pill"
               :class="{ active: settings.qualityPreset === 'original' }"
               @click="settings.qualityPreset = 'original'"
-             
+
             >
               原始质量
             </span>
@@ -499,7 +496,7 @@
       defer
       src="./vendor/alpine.min.js"
     ></script>
-    
+
     <!-- PWA Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
