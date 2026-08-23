@@ -38,9 +38,17 @@ jobs:
           curl --fail --location --retry 3 \
             https://cdn.jsdelivr.net/npm/mediabunny@1.55.1/dist/bundles/mediabunny.min.mjs \
             --output vendor/mediabunny.min.mjs
+          curl --fail --location --retry 3 \
+            https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.55.1/dist/bundles/mediabunny-aac-encoder.min.mjs \
+            --output vendor/mediabunny-aac-encoder.min.mjs
+          curl --fail --location --retry 3 \
+            https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.55.1/dist/bundles/mediabunny-mp3-encoder.min.mjs \
+            --output vendor/mediabunny-mp3-encoder.min.mjs
 
           test -s vendor/alpine.min.js
           test -s vendor/mediabunny.min.mjs
+          test -s vendor/mediabunny-aac-encoder.min.mjs
+          test -s vendor/mediabunny-mp3-encoder.min.mjs
 
       - name: Prepare Pages artifact
         shell: bash

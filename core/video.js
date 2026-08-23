@@ -61,9 +61,19 @@ export const CODEC_DEFINITIONS = [
 
 export const AUDIO_CODEC_DEFINITIONS = [
   { id: "aac", label: "AAC" },
+  { id: "mp3", label: "MP3" },
   { id: "opus", label: "Opus" },
   { id: "vorbis", label: "Vorbis" },
 ];
+
+export function normalizeAudioCodec(codec) {
+    const value = String(codec || "").toLowerCase();
+    if (value === "mp3" || value === "mp4a.6b") return "mp3";
+    if (value === "aac" || value.startsWith("mp4a")) return "aac";
+    if (value.includes("opus")) return "opus";
+    if (value.includes("vorbis")) return "vorbis";
+    return value;
+}
 
 /** Select a container MediaBunny can write from the uploaded file extension. */
 export function getOutputContainer(originalName) {

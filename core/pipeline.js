@@ -20,6 +20,7 @@ import {
   Output,
   BufferTarget,
   Mp4OutputFormat,
+  Mp3OutputFormat,
   WebMOutputFormat,
   Conversion,
 } from "mediabunny";
@@ -30,15 +31,17 @@ import {
   needsSpeed,
   CODEC_DEFINITIONS,
   getOutputContainer,
+  normalizeAudioCodec,
 } from "./video.js";
 
 const AUDIO_FMT_MAP = {
   aac: Mp4OutputFormat,
+  mp3: Mp3OutputFormat,
   opus: WebMOutputFormat,
   vorbis: WebMOutputFormat,
 };
 
-const AUDIO_CODECS = ["aac", "opus", "vorbis"];
+const AUDIO_CODECS = ["aac", "mp3", "opus", "vorbis"];
 
 const BY_ID = Object.fromEntries(
   CODEC_DEFINITIONS.map((c) => [c.id, { ...c }]),
@@ -78,7 +81,7 @@ export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
  */
 export function deriveOutputFileName(originalName, _codecId, outputMode = "muxed", audioCodec = "aac") {
   if (outputMode === "audio-only") {
-    const audioExt = { aac: ".m4a", opus: ".webm", vorbis: ".webm" }[audioCodec] || ".m4a";
+    const audioExt = { aac: ".m4a", mp3: ".mp3", opus: ".webm", vorbis: ".webm" }[audioCodec] || ".m4a";
     const base = originalName.replace(/\.[^.]+$/, "");
     return `${base}_audio${audioExt}`;
   }
@@ -171,12 +174,14 @@ export async function processVideo({
     throw new Error("No audio track found in input file.");
   }
 
-  const sourceAudioCodec = audioTrack ? await audioTrack.getCodec() : null;
+  const sourceAudioCodec = audioTrack
+    ? normalizeAudioCodec(await audioTrack.getCodec())
+    : null;
 
   const outputContainer = getOutputContainer(file.name);
   const compatibleAudioCodecs = outputMode === "audio-only"
     ? AUDIO_CODECS
-    : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac"]);
+    : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac", "mp3"]);
   const resolvedAudioCodec = audioCodec === "auto"
     ? (compatibleAudioCodecs.includes(sourceAudioCodec)
       ? sourceAudioCodec

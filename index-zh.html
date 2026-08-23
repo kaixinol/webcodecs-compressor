@@ -241,7 +241,7 @@
         <!-- 输出轨道 -->
         <div class="form-group">
           <label for="output_mode">输出轨道</label>
-          <select id="output_mode" x-model="settings.outputMode" @change="syncAudioCodec()">
+          <select id="output_mode" :value="settings.outputMode" @change="setOutputMode($event.target.value)">
             <option value="muxed">视频 + 音频</option>
             <option value="video-only">仅视频</option>
             <option value="audio-only">仅音频</option>

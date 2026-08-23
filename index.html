@@ -241,7 +241,7 @@
         <!-- Output tracks -->
         <div class="form-group">
           <label for="output_mode">Output tracks</label>
-          <select id="output_mode" x-model="settings.outputMode" @change="syncAudioCodec()">
+          <select id="output_mode" :value="settings.outputMode" @change="setOutputMode($event.target.value)">
             <option value="muxed">Video + audio</option>
             <option value="video-only">Video only</option>
             <option value="audio-only">Audio only</option>

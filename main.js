@@ -8,6 +8,7 @@ import {
   CODEC_DEFINITIONS,
   AUDIO_CODEC_DEFINITIONS,
   getOutputContainer,
+  normalizeAudioCodec,
 } from "./core/video.js";
 
 /** SDR-only codecs for HDR warning */
@@ -66,12 +67,22 @@ export default function createApp() {
       const outputContainer = this.file
         ? getOutputContainer(this.file.name)
         : "mp4";
-      const allowed = this.settings.outputMode === "audio-only"
+      const audioOnly = this.settings.outputMode === "audio-only";
+      const allowed = audioOnly
         ? this.audioCodecs.map((c) => c.id)
-        : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac"]);
+        : (outputContainer === "webm" ? ["opus", "vorbis"] : ["aac", "mp3"]);
+      const sourceCodec = normalizeAudioCodec(this.metadata?.audio?.codec);
+      const autoLabel = sourceCodec
+        ? `Auto (${sourceCodec} keep source codec)`
+        : "Auto (keep source codec)";
       return [
-        { id: "auto", label: "Auto (keep source codec)" },
-        ...this.audioCodecs.filter((c) => allowed.includes(c.id)),
+        { id: "auto", label: autoLabel },
+        ...this.audioCodecs
+          .filter((c) => allowed.includes(c.id))
+          .sort((a, b) => {
+            const order = ["aac", "mp3", "opus", "vorbis"];
+            return order.indexOf(a.id) - order.indexOf(b.id);
+          }),
       ];
     },
 
@@ -122,6 +133,20 @@ export default function createApp() {
       if (!this.audioCodecChoices.some((c) => c.id === this.settings.audioCodec)) {
         this.settings.audioCodec = "auto";
       }
+    },
+
+    setOutputMode(mode) {
+      this.settings.outputMode = mode;
+      if (mode === "audio-only") {
+        const preferred = ["aac", "mp3"].find((id) =>
+          this.audioCodecs.some((codec) => codec.id === id),
+        );
+        if (preferred) {
+          this.settings.audioCodec = preferred;
+          return;
+        }
+      }
+      this.syncAudioCodec();
     },
 
     async _testVideoCodec(codec) {
@@ -287,6 +312,7 @@ export default function createApp() {
     async _detectCodecs() {
       try {
         const mb = await import("mediabunny");
+        await this._registerAudioFallbacks(mb);
 
         const results = await Promise.all(
           CODEC_DEFINITIONS.map(async (def) => {
@@ -404,6 +430,22 @@ export default function createApp() {
           { id: "h264", label: "H.264", audioCodecs: ["aac"], webCodecsCodec: "avc1.42001f", encodeSupported: true, outputDecodeSupported: null, hardwareDecode: null, tooltip: "" },
         ];
         this.audioCodecs = [];
+      }
+    },
+
+    async _registerAudioFallbacks(mb) {
+      const fallbacks = [
+        ["aac", "./vendor/mediabunny-aac-encoder.min.mjs", "registerAacEncoder"],
+        ["mp3", "./vendor/mediabunny-mp3-encoder.min.mjs", "registerMp3Encoder"],
+      ];
+      for (const [codec, path, register] of fallbacks) {
+        if (await mb.canEncodeAudio(codec)) continue;
+        try {
+          const plugin = await import(path);
+          plugin[register]();
+        } catch (error) {
+          console.warn(`[codecs] ${codec} fallback unavailable`, error);
+        }
       }
     },
 
