@@ -566,6 +566,9 @@ export default function createApp() {
       this.errorDetails = "";
       this.errorCopied = false;
       this.statusMessage = "Initialising…";
+      if (this.downloadUrl) {
+        URL.revokeObjectURL(this.downloadUrl);
+      }
       this.downloadUrl = null;
       this.currentConversion = null;
 
@@ -650,7 +653,7 @@ export default function createApp() {
           alert(msg);
         }
 
-        const blob = new Blob([result.buffer], { type: result.mimeType });
+        const blob = new Blob([result.file], { type: result.mimeType });
         const url = URL.createObjectURL(blob);
         this.downloadUrl = url;
         this.outputFileName = result.fileName;

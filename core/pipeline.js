@@ -18,7 +18,7 @@ import {
   ALL_FORMATS,
   BlobSource,
   Output,
-  BufferTarget,
+  StreamTarget,
   Mp4OutputFormat,
   Mp3OutputFormat,
   WebMOutputFormat,
@@ -42,6 +42,10 @@ const AUDIO_FMT_MAP = {
 };
 
 const AUDIO_CODECS = ["aac", "mp3", "opus", "vorbis"];
+
+// Handle to the OPFS temp file written in the previous run, so we can delete it
+// on the next run and avoid leaking disk files across conversions.
+let prevOpfsHandle = null;
 
 const BY_ID = Object.fromEntries(
   CODEC_DEFINITIONS.map((c) => [c.id, { ...c }]),
@@ -156,6 +160,29 @@ export async function processVideo({
   if (!cfg) throw new Error(`Unknown codec: ${codec}`);
   const videoCodec = cfg.mbCodec;
 
+  // Clean up the previous run's OPFS temp file (avoid cross-run leaks).
+  if (prevOpfsHandle) {
+    await prevOpfsHandle.remove().catch(() => {});
+    prevOpfsHandle = null;
+  }
+
+  // Early FS Access prompt: must run while user activation is valid, and only
+  // when OPFS is unavailable (our primary streaming output target). The chosen
+  // handle is reused later as the direct output sink.
+  let userHandle = null;
+  const opfsAvailable = !!(navigator.storage && "getDirectory" in navigator.storage);
+  if (!opfsAvailable && typeof window.showSaveFilePicker === "function") {
+    try {
+      const suggestedName =
+        (file?.name || "output").replace(/\.[^.]+$/, "") +
+        (getOutputContainer(file?.name || "") === "webm" ? ".webm" : ".mp4");
+      userHandle = await window.showSaveFilePicker({ suggestedName });
+    } catch (e) {
+      if (e?.name === "AbortError") userHandle = null;
+      else throw e;
+    }
+  }
+
   /* ── 1. Open input ─────────────────────────────────────────────── */
   const input = new Input({
     source: new BlobSource(file),
@@ -267,10 +294,76 @@ export async function processVideo({
     onStatus(parts.join(", "));
   }
 
-  /* ── 4. Build output ───────────────────────────────────────────── */
+  /* ── 4. Build output (streaming) ──────────────────────────────── */
+  const ext = outputFormat.fileExtension || ".bin";
+  let bytesWritten = 0;
+  let opfsHandle = null; // OPFS temp file; deleted next run / on failure
+  let memChunks = null; // in-memory fallback accumulator
+
+  let writable;
+  if (opfsAvailable) {
+    // Primary: stream to an OPFS temp file (no dialog, low RAM). Wrapped in
+    // try/catch so a runtime OPFS failure (quota, policy, insecure context…)
+    // falls back instead of aborting the whole conversion.
+    try {
+      const dir = await navigator.storage.getDirectory();
+      const tmpName = `wb-${Date.now()}-${Math.random().toString(36).slice(2, 10)}` + ext;
+      opfsHandle = await dir.getFileHandle(tmpName, { create: true });
+      const opfsWriter = await opfsHandle.createWritable();
+      writable = new WritableStream(
+        {
+          write(chunk) {
+            bytesWritten += chunk.data.byteLength;
+            return opfsWriter.write(chunk);
+          },
+          close() { return opfsWriter.close(); },
+          abort(reason) { return opfsWriter.abort(reason); },
+        },
+        { highWaterMark: 16 * 1024 * 1024 },
+      );
+    } catch (e) {
+      if (opfsHandle) {
+        await opfsHandle.remove().catch(() => {});
+        opfsHandle = null;
+      }
+      writable = null;
+      console.warn("[pipeline] OPFS output unavailable, falling back:", e);
+    }
+  }
+  if (!writable && userHandle) {
+    // FS Access fallback: write directly to the user-chosen file (zero RAM).
+    const fsWriter = await userHandle.createWritable();
+    writable = new WritableStream(
+      {
+        write(chunk) {
+          bytesWritten += chunk.data.byteLength;
+          return fsWriter.write(chunk);
+        },
+        close() { return fsWriter.close(); },
+        abort(reason) { return fsWriter.abort(reason); },
+      },
+      { highWaterMark: 16 * 1024 * 1024 },
+    );
+  }
+  if (!writable) {
+    // Last-resort fallback: accumulate chunks in memory (RAM scales with output).
+    memChunks = [];
+    writable = new WritableStream(
+      {
+        write(chunk) {
+          memChunks.push(chunk.data);
+          bytesWritten += chunk.data.byteLength;
+        },
+        close() {},
+        abort() {},
+      },
+      { highWaterMark: 64 * 1024 * 1024 },
+    );
+  }
+
   const output = new Output({
     format: outputFormat,
-    target: new BufferTarget(),
+    target: new StreamTarget(writable, { chunked: true }),
   });
 
   /* ── 5. Build codec conversion options ──────────────────────────── */
@@ -354,8 +447,10 @@ export async function processVideo({
       if (typeof conversion.cancel === "function") conversion.cancel();
     }
   }, 1000);
+  let success = false;
   try {
     await conversion.execute();
+    success = true;
   } catch (error) {
     if (stalled) {
       throw Object.assign(
@@ -366,19 +461,34 @@ export async function processVideo({
     throw error;
   } finally {
     if (watchdog) clearInterval(watchdog);
+    // On any failure/cancel/abort, discard the half-written OPFS temp file.
+    if (!success && opfsHandle) {
+      await opfsHandle.remove().catch(() => {});
+      opfsHandle = null;
+    }
   }
 
   /* ── 8. Return ─────────────────────────────────────────────────── */
-  const buffer = output.target.buffer;
   const mimeType = output.format.mimeType;
   const fileName = deriveOutputFileName(file.name, codec, outputMode, resolvedAudioCodec);
 
+  let outputFile;
+  if (opfsHandle) {
+    outputFile = await opfsHandle.getFile();
+    prevOpfsHandle = opfsHandle; // kept on disk for download/preview; deleted next run
+  } else if (userHandle) {
+    outputFile = await userHandle.getFile(); // user's chosen file (persisted)
+  } else {
+    outputFile = new Blob(memChunks, { type: mimeType });
+    memChunks = null;
+  }
+
   return {
-    buffer,
+    file: outputFile,
     fileName,
     mimeType,
     inputSize,
-    outputSize: buffer.byteLength,
+    outputSize: bytesWritten,
     srcDuration: effectiveDuration,
   };
 }
