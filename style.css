@@ -402,10 +402,6 @@
         cursor: wait;
       }
 
-      .error-copyable {
-        cursor: copy;
-      }
-
       .error-copy-button {
         margin-top: 0.5rem;
       }

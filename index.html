@@ -497,9 +497,7 @@
       <template x-if="error">
         <div>
           <p
-            class="status error error-copyable"
-            @click="copyError()"
-            title="Click to copy error details"
+            class="status error"
             x-text="'Processing failed: ' + error"
           ></p>
           <button class="btn btn-secondary error-copy-button" type="button" @click="copyError()">

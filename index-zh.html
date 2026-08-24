@@ -504,9 +504,7 @@
       <template x-if="error">
         <div>
           <p
-            class="status error error-copyable"
-            @click="copyError()"
-            title="点击复制错误信息"
+            class="status error"
             x-text="'处理失败：' + error"
           ></p>
           <button class="btn btn-secondary error-copy-button" type="button" @click="copyError()">
