@@ -99,17 +99,8 @@ export function dimensionsFromPreset(targetHeight, srcW, srcH) {
     };
 }
 
-/**
- * Calculate target dimensions when both width and height are explicitly
- * specified (custom mode), preserving aspect ratio via contain.
- */
-export function calculateCustomResize(srcW, srcH, targetW, targetH) {
-    let w = targetW;
-    let h = targetH;
-    if (w % 2 !== 0) w += 1;
-    if (h % 2 !== 0) h += 1;
-    return { width: w, height: h };
-}
+
+
 
 /**
  * Check whether speed change is meaningful.

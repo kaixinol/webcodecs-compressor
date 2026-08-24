@@ -27,7 +27,6 @@ import {
 
 import {
   dimensionsFromPreset,
-  calculateCustomResize,
   needsSpeed,
   CODEC_DEFINITIONS,
   getOutputContainer,
@@ -125,8 +124,7 @@ function makeAudioProcessFn(speed) {
  * @param {File} opts.file
  * @param {string} opts.codec - Codec id: h264|hevc|vp8|vp9|av1
  * @param {string} [opts.resolution] - Resolution preset id or null (= original)
- * @param {number} [opts.customWidth] - Custom width (when resolution === 'custom')
- * @param {number} [opts.customHeight] - Custom height (when resolution === 'custom')
+ * @param {number} [opts.customHeight] - Custom target height (when resolution === 'custom')
  * @param {number} opts.speed - Playback speed multiplier
  * @param {string} [opts.audioCodec] - auto or an output audio codec
  * @param {number} [opts.audioBitrate] - Audio bitrate in bps
@@ -143,7 +141,6 @@ export async function processVideo({
   file,
   codec = "h264",
   resolution = null,
-  customWidth,
   customHeight,
   speed = 1.0,
   audioCodec = "auto",
@@ -237,12 +234,11 @@ export async function processVideo({
   let needsResize = false;
 
   if (resolution && resolution !== "original") {
-    if (resolution === "custom" && customWidth && customHeight) {
-      ({ width: outW, height: outH } = calculateCustomResize(
+    if (resolution === "custom" && customHeight) {
+      ({ width: outW, height: outH } = dimensionsFromPreset(
+        customHeight,
         srcW,
         srcH,
-        customWidth,
-        customHeight,
       ));
     } else {
       const presetH = parseInt(resolution, 10);

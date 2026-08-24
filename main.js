@@ -67,7 +67,6 @@ export default function createApp() {
       codec: "h264",
       outputMode: "muxed",
       resolution: "original",
-      customWidth: null,
       customHeight: null,
       speed: 1.0,
       bitrate: 0,
@@ -466,7 +465,6 @@ export default function createApp() {
       this.sourceDecodeSupported = null;
       this.downloadUrl = null;
       this.settings.resolution = "original";
-      this.settings.customWidth = null;
       this.settings.customHeight = null;
       if (this.$refs?.fileInput) this.$refs.fileInput.value = "";
     },
@@ -504,22 +502,13 @@ export default function createApp() {
       this.warning = null;
     },
 
-    /** Validate that custom dimensions don't exceed source */
+    /** Validate that custom height doesn't exceed source */
     validateCustomResolution() {
-      const srcW = this.metadata?.video?.displayW;
       const srcH = this.metadata?.video?.displayH;
-      if (!srcW || !srcH) return true;
+      if (!srcH) return true;
 
-      const cW = this.settings.customWidth;
       const cH = this.settings.customHeight;
 
-      if (cW && cW > srcW) {
-        this.settings.customWidth = srcW;
-        this.warning = `Width capped to source (${srcW}px).`;
-        setTimeout(() => {
-          this.warning = null;
-        }, 3000);
-      }
       if (cH && cH > srcH) {
         this.settings.customHeight = srcH;
         this.warning = `Height capped to source (${srcH}px).`;
@@ -545,9 +534,8 @@ export default function createApp() {
           this.error = this.warning;
           return;
         }
-        if (!this.settings.customWidth || !this.settings.customHeight) {
-          this.error =
-            "Please enter both width and height for custom resolution.";
+        if (!this.settings.customHeight) {
+          this.error = "Please enter a target height for custom resolution.";
           return;
         }
       }
@@ -621,7 +609,6 @@ export default function createApp() {
           file: this.file,
           codec: this.settings.codec,
           resolution: this.settings.resolution,
-          customWidth: this.settings.customWidth || undefined,
           customHeight: this.settings.customHeight || undefined,
           speed: this.settings.speed || 1.0,
           audioCodec: this.settings.audioCodec,
