@@ -73,7 +73,7 @@ export function estimateBitrate(w, h) {
  * capped at 50 Mbps. If source bitrate is unknown, fall back to
  * a very generous 8 Mbps.
  */
-export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
+export function originalQualityBitrate(sourceBitrate) {
   if (sourceBitrate && sourceBitrate > 0) {
     return Math.min(50_000_000, Math.round(sourceBitrate * 1.2));
   }
@@ -83,7 +83,7 @@ export function originalQualityBitrate(sourceBitrate, _w = 0, _h = 0) {
 /**
  * Derive output file name.
  */
-export function deriveOutputFileName(originalName, _codecId, outputMode = "muxed", audioCodec = "aac") {
+export function deriveOutputFileName(originalName, outputMode = "muxed", audioCodec = "aac") {
   if (outputMode === "audio-only") {
     const audioExt = { aac: ".m4a", mp3: ".mp3", opus: ".webm", vorbis: ".webm" }[audioCodec] || ".m4a";
     const base = originalName.replace(/\.[^.]+$/, "");
@@ -136,8 +136,8 @@ function makeAudioProcessFn(speed) {
  * @param {function(number): void} [opts.onProgress]
  * @param {function(string): void} [opts.onStatus]
  * @param {function(object): void} [opts.onConversionReady]
- * @returns {Promise<{ buffer: ArrayBuffer, fileName: string, mimeType: string,
- *                    inputSize: number, outputSize: number, srcDuration: number }>}
+ * @returns {Promise<{ file: Blob, fileName: string, mimeType: string,
+ *                    inputSize: number, outputSize: number }>}
  */
 export async function processVideo({
   file,
@@ -190,9 +190,6 @@ export async function processVideo({
   });
 
   const inputSize = await input.source.getSize();
-  const srcDuration = await input.computeDuration();
-  const firstTs = await input.getFirstTimestamp();
-  const effectiveDuration = srcDuration - firstTs;
 
   const videoTrack = await input.getPrimaryVideoTrack();
   const audioTrack = await input.getPrimaryAudioTrack();
@@ -276,8 +273,6 @@ export async function processVideo({
   } else if (qualityPreset === "original") {
     vidBitrate = originalQualityBitrate(
       await videoTrack.getAverageBitrate(),
-      outW,
-      outH,
     );
   } else {
     vidBitrate = estimateBitrate(outW, outH);
@@ -470,7 +465,7 @@ export async function processVideo({
 
   /* ── 8. Return ─────────────────────────────────────────────────── */
   const mimeType = output.format.mimeType;
-  const fileName = deriveOutputFileName(file.name, codec, outputMode, resolvedAudioCodec);
+  const fileName = deriveOutputFileName(file.name, outputMode, resolvedAudioCodec);
 
   let outputFile;
   if (opfsHandle) {
@@ -489,6 +484,5 @@ export async function processVideo({
     mimeType,
     inputSize,
     outputSize: bytesWritten,
-    srcDuration: effectiveDuration,
   };
 }

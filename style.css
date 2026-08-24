@@ -254,42 +254,6 @@
         font-size: 0.75rem;
       }
 
-      .codec-wrap {
-        position: relative;
-      }
-
-      .codec-tooltip {
-        display: none;
-        position: absolute;
-        bottom: calc(100% + 6px);
-        left: 0;
-        right: 0;
-        text-align: center;
-        background: #ef5350;
-        color: #fff;
-        font-size: 0.75rem;
-        padding: 0.35rem 0.6rem;
-        border-radius: 6px;
-        white-space: nowrap;
-        z-index: 20;
-        pointer-events: none;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-      }
-
-      .codec-tooltip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border: 5px solid transparent;
-        border-top-color: #ef5350;
-      }
-
-      .codec-wrap.show-tooltip .codec-tooltip {
-        display: block;
-      }
-
       /* metadata */
       .meta-section {
         margin-top: 0.5rem;
@@ -338,13 +302,6 @@
         color: #ddd;
         text-align: right; /* 数值统一右对齐 */
         font-variant-numeric: tabular-nums; /* 等宽数字，更整齐 */
-      }
-
-      .meta-section-header {
-        color: #81c784 !important;
-        font-weight: 600 !important;
-        padding-top: 0.75rem !important;
-        border-bottom: none !important;
       }
 
       /* buttons */
