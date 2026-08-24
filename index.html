@@ -438,6 +438,20 @@
           />
         </div>
 
+        <!-- Software encode (fallback for hardware encoder stalls) -->
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input
+              type="checkbox"
+              id="software_encode"
+              x-model="settings.softwareEncode"
+            />
+            <label for="software_encode"
+              >Software encode (check this if encoding hangs)</label
+            >
+          </div>
+        </div>
+
         <!-- Auto-download -->
         <div class="form-group">
           <div class="checkbox-group">

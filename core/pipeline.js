@@ -147,6 +147,7 @@ export async function processVideo({
   outputMode = "muxed",
   bitrate = 0,
   qualityPreset = "auto",
+  softwareEncode = false,
   onProgress = null,
   onStatus = null,
   onConversionReady = null,
@@ -282,6 +283,9 @@ export async function processVideo({
         // Without this, Mediabunny copies tracks already in the target codec
         // and silently ignores `bitrate`.
         forceTranscode: true,
+        // Force software encoding when the hardware encoder is known to stall
+        // (see Conversion stall watchdog below). "no-preference" otherwise.
+        hardwareAcceleration: softwareEncode ? "prefer-software" : "no-preference",
         // Ensure SDR color space compatibility for output
         // H.264 only supports BT.601/BT.709; force BT.709 for max compatibility
         colorSpace: {
@@ -309,6 +313,7 @@ export async function processVideo({
       audioOpts.codec = resolvedAudioCodec;
       audioOpts.bitrate = audioBitrate;
       audioOpts.forceTranscode = audioCodec !== "auto";
+      audioOpts.hardwareAcceleration = softwareEncode ? "prefer-software" : "no-preference";
     }
     if (doSpeed) {
       audioOpts.process = makeAudioProcessFn(speed);
@@ -328,15 +333,40 @@ export async function processVideo({
     throw new Error(`Conversion invalid: ${reasons}`);
   }
 
-  if (onConversionReady) onConversionReady(conversion);
+  if (onConversionReady) {
+    onConversionReady(conversion);
+  }
 
   /* ── 7. Execute ────────────────────────────────────────────────── */
+  let lastProgressTime = performance.now();
+  let stalled = false;
+  const STALL_TIMEOUT_MS = 5000;
   conversion.onProgress = (p) => {
     if (onProgress) onProgress(p);
+    lastProgressTime = performance.now();
   };
   onStatus?.("Processing…");
 
-  await conversion.execute();
+  const watchdog = setInterval(() => {
+    if (performance.now() - lastProgressTime > STALL_TIMEOUT_MS) {
+      stalled = true;
+      console.warn("Encoding stalled (>%dms no progress), cancelling conversion", STALL_TIMEOUT_MS);
+      if (typeof conversion.cancel === "function") conversion.cancel();
+    }
+  }, 1000);
+  try {
+    await conversion.execute();
+  } catch (error) {
+    if (stalled) {
+      throw Object.assign(
+        new Error("Encoding stalled: the WebCodecs hardware encoder is unresponsive. Check \"Software encode\", or disable Experimental Graphics API / GPU acceleration in your browser settings and retry."),
+        { name: "ConversionStalledError" },
+      );
+    }
+    throw error;
+  } finally {
+    if (watchdog) clearInterval(watchdog);
+  }
 
   /* ── 8. Return ─────────────────────────────────────────────────── */
   const buffer = output.target.buffer;

@@ -14,6 +14,35 @@ import {
 /** SDR-only codecs for HDR warning */
 const SDR_ONLY_CODEC_IDS = ["h264", "vp8"];
 
+/** Minimal i18n: pick strings by the page language (<html lang> / browser locale). */
+const isZh = () =>
+  (document.documentElement.lang || navigator.language || "en")
+    .toLowerCase()
+    .startsWith("zh");
+
+const I18N = {
+  targetSizeExceeded: (out, tgt) =>
+    isZh()
+      ? `压缩后大小 ${out} 仍超过目标 ${tgt}。可尝试降低分辨率或调小目标大小。`
+      : `Compressed size ${out} still exceeds target ${tgt}. Try lowering the resolution or target size.`,
+  gpuAccel: () =>
+    isZh()
+      ? "使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。"
+      : "Before using, disable Experimental Graphics API / GPU acceleration in your browser settings, otherwise it may cause garbled output, black screen, or conversion failure.",
+  copyError: () =>
+    isZh()
+      ? "复制错误信息失败，请打开开发者工具查看 console.debug 日志。"
+      : "Failed to copy error info. Open DevTools to view the console.debug log.",
+  issueConfirm: () =>
+    isZh()
+      ? "错误信息已复制，是否提交 GitHub Issue？"
+      : "Error info copied. Open a GitHub Issue?",
+  stall: () =>
+    isZh()
+      ? "编码卡死：WebCodecs 硬件编码器无响应。请勾选「软件编码」，或在浏览器设置中关闭实验性图形 API / GPU 加速后重试。"
+      : "Encoding stalled: the WebCodecs hardware encoder is unresponsive. Check \"Software encode\", or disable Experimental Graphics API / GPU acceleration in your browser settings and retry.",
+};
+
 export default function createApp() {
   return {
     /* ── state ──────────────────────────────────────────────────── */
@@ -47,6 +76,7 @@ export default function createApp() {
       audioCodec: "auto",
       audioBitrate: 128,
       qualityPreset: "auto",
+      softwareEncode: false,
       autoDownload: true,
     },
 
@@ -595,6 +625,7 @@ export default function createApp() {
           audioBitrate: finalAudioBitrate ?? this.settings.audioBitrate * 1000,
           outputMode: this.settings.outputMode,
           qualityPreset: this.settings.qualityPreset,
+          softwareEncode: this.settings.softwareEncode,
           onProgress: (p) => {
             this.progress = p;
           },
@@ -608,9 +639,13 @@ export default function createApp() {
 
         let result = await processVideo({ ...baseOpts, bitrate: finalBitrate });
 
-        // 目标大小模式下，若首次编码仍超出目标，提示用户降低分辨率或目标大小。
+        // In target-size mode, if the first encode still exceeds the target,
+        // warn the user that they can lower the resolution or target size.
         if (this.settings.bitrateMode === "size" && result.outputSize > targetBytes) {
-          const msg = `压缩后大小 ${this.formatSize(result.outputSize)} 仍超过目标 ${this.formatSize(targetBytes)}。可尝试降低分辨率或调小目标大小。`;
+          const msg = I18N.targetSizeExceeded(
+            this.formatSize(result.outputSize),
+            this.formatSize(targetBytes),
+          );
           this.statusMessage = msg;
           alert(msg);
         }
@@ -629,11 +664,13 @@ export default function createApp() {
       } catch (err) {
         if (err?.name === "ConversionCanceledError") {
           this.statusMessage = "Cancelled.";
+        } else if (err?.name === "ConversionStalledError") {
+          this.statusMessage = I18N.stall();
         } else {
           this.errorDetails = this._formatErrorDetails(err);
           console.debug("[app] processing error details:\n%s", this.errorDetails);
           this.error = err?.message ?? "Unexpected error during processing.";
-          alert("使用前请在浏览器设置中关闭实验性图形 API / GPU 加速，否则可能导致乱码、黑屏或转换失败。");
+          alert(I18N.gpuAccel());
           this.statusMessage = "";
         }
       } finally {
@@ -667,12 +704,12 @@ export default function createApp() {
         console.debug("[app] copy error details failed", error);
       }
       if (!copied) {
-        alert("复制错误信息失败，请打开开发者工具查看 console.debug 日志。");
+        alert(I18N.copyError());
         return;
       }
 
       this.errorCopied = true;
-      if (confirm("错误信息已复制，是否提交 GitHub Issue？")) {
+      if (confirm(I18N.issueConfirm())) {
         const params = new URLSearchParams({
           title: "Video processing failed",
           body: text.slice(0, 8000),
