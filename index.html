@@ -403,6 +403,12 @@
             >
               (Total output size incl. audio &amp; container — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
             </span>
+            <span
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              style="color: #666; font-size: 0.75rem; margin-left: 0.25rem; display: block; margin-top: 0.25rem"
+            >
+              Note: output size usually has a tolerance (about ±20%) — the result may not end up smaller than the limit.
+            </span>
           </div>
         </div>
 

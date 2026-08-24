@@ -405,6 +405,12 @@
             >
               (总输出大小，含音轨与容器 — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
             </span>
+            <span
+              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
+              style="color: #666; font-size: 0.75rem; margin-left: 0.25rem; display: block; margin-top: 0.25rem"
+            >
+              提示：输出大小通常有容差（约 ±20%），输出大小可能无法小于限制。
+            </span>
           </div>
         </div>
 
