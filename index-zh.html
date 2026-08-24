@@ -405,16 +405,6 @@
             >
               (总输出大小，含音轨与容器 — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
             </span>
-            <div
-              class="checkbox-group"
-              style="margin-top: 0.5rem"
-              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
-            >
-              <input type="checkbox" id="enforce_size_limit" x-model="settings.enforceSizeLimit" />
-              <label for="enforce_size_limit"
-                >严格限制 — 若首次编码超出目标，则丢弃并重新编码以满足限制</label
-              >
-            </div>
           </div>
         </div>
 

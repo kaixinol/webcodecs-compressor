@@ -403,16 +403,6 @@
             >
               (Total output size incl. audio &amp; container — Discord 8/50/100 MB · Twitter 512 MB · Telegram 2 GB)
             </span>
-            <div
-              class="checkbox-group"
-              style="margin-top: 0.5rem"
-              x-show="settings.qualityPreset === 'auto' && settings.bitrateMode === 'size'"
-            >
-              <input type="checkbox" id="enforce_size_limit" x-model="settings.enforceSizeLimit" />
-              <label for="enforce_size_limit"
-                >Strict limit — if first encode exceeds target, discard &amp; re-encode to fit</label
-              >
-            </div>
           </div>
         </div>
 
