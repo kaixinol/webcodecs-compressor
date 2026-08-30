@@ -381,8 +381,9 @@ export default function createApp() {
               ? `${ar.numerator}:${ar.denominator}`
               : "1:1";
           const cs = await videoTrack.getColorSpace();
-          const colorName =
-            cs && cs.name ? cs.name : cs ? JSON.stringify(cs) : "unknown";
+          const colorName = cs
+            ? cs.name || [cs.primaries, cs.transfer, cs.matrix].filter(Boolean).join("/") || "unknown"
+            : "unknown";
           videoInfo = {
             codec: await videoTrack.getCodec(),
             codedW: await videoTrack.getCodedWidth(),

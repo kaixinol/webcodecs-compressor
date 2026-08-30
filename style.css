@@ -280,7 +280,7 @@
         margin-top: 0.5rem;
         font-size: 0.8rem;
         border-collapse: collapse;
-        table-layout: auto; /* 改为 auto，避免列宽错乱 */
+        table-layout: fixed;
       }
 
       .meta-table th,
@@ -288,20 +288,22 @@
         text-align: left;
         padding: 0.4rem 0.5rem;
         border-bottom: 1px solid #2a2a2a;
-        vertical-align: middle; /* 统一垂直对齐 */
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .meta-table th {
         color: #888;
-        width: 42%; /* 稍微收紧，避免挤压 */
+        width: 42%;
         font-weight: 400;
-        white-space: nowrap; /* 防止 key 换行 */
+        white-space: nowrap;
       }
 
       .meta-table td {
         color: #ddd;
-        text-align: right; /* 数值统一右对齐 */
-        font-variant-numeric: tabular-nums; /* 等宽数字，更整齐 */
+        text-align: right;
+        font-variant-numeric: tabular-nums;
       }
 
       /* buttons */
