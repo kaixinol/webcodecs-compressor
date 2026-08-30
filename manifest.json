@@ -1,7 +1,7 @@
 {
   "name": "视频压缩工具 - MediaBunny",
   "short_name": "视频压缩",
-  "description": "基于 WebCodecs API 的本地视频压缩工具，无需上传到服务器",
+  "description": "基于 WebCodecs API 的本地视频处理与压缩工具。支持 H.264, H.265/HEVC, VP9, AV1 等多格式，含音频编码。所有处理在浏览器中进行，保护隐私。",
   "start_url": "./index-zh.html",
   "display": "standalone",
   "background_color": "#0f0f0f",
