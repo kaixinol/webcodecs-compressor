@@ -430,7 +430,8 @@ export async function processVideo({
     lastProgressTime = performance.now();
   };
   onStatus?.("Processing…");
-
+  // Some platforms (e.g. Linux) may report hardware decoding support even when
+  // it can actually hang. Watchdog detects stalled conversions so we can fall back to software decoding.
   const watchdog = setInterval(() => {
     if (performance.now() - lastProgressTime > STALL_TIMEOUT_MS) {
       stalled = true;
